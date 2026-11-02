@@ -1,0 +1,193 @@
+{
+  "title": "AchillesAPI Demo Service",
+  "version": "1.0.0",
+  "openapi_version": "3.0.3",
+  "description": "A deliberately small API contract for parser development.",
+  "servers": [
+    {
+      "url": "http://127.0.0.1:8080"
+    }
+  ],
+  "security_schemes": [
+    {
+      "scheme_name": "bearerAuth",
+      "type": "http",
+      "scheme": "bearer",
+      "bearer_format": null,
+      "in": null,
+      "name": null,
+      "description": null,
+      "flows": null,
+      "openIdConnectUrl": null
+    }
+  ],
+  "endpoints": [
+    {
+      "path": "/users/{userId}",
+      "method": "GET",
+      "operation_id": "getUser",
+      "summary": "Retrieve a user",
+      "description": null,
+      "tags": [],
+      "parameters": [
+        {
+          "name": "userId",
+          "in": "path",
+          "required": true,
+          "description": "User identifier",
+          "schema": {
+            "type": "integer"
+          },
+          "style": null,
+          "explode": null
+        }
+      ],
+      "request_body": null,
+      "responses": {
+        "200": {
+          "description": "User found"
+        }
+      },
+      "security": [
+        {
+          "schemes": {
+            "bearerAuth": []
+          }
+        }
+      ],
+      "security_is_explicitly_disabled": false,
+      "servers": [
+        {
+          "url": "http://127.0.0.1:8080"
+        }
+      ]
+    },
+    {
+      "path": "/users/{userId}",
+      "method": "PATCH",
+      "operation_id": "updateUser",
+      "summary": "Update a user",
+      "description": null,
+      "tags": [],
+      "parameters": [
+        {
+          "name": "userId",
+          "in": "path",
+          "required": true,
+          "description": "User identifier",
+          "schema": {
+            "type": "integer"
+          },
+          "style": null,
+          "explode": null
+        },
+        {
+          "name": "fields",
+          "in": "query",
+          "required": false,
+          "description": null,
+          "schema": {
+            "type": "string"
+          },
+          "style": null,
+          "explode": null
+        }
+      ],
+      "request_body": {
+        "required": true,
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "properties": {
+                "displayName": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      },
+      "responses": {
+        "200": {
+          "description": "User updated"
+        }
+      },
+      "security": [
+        {
+          "schemes": {
+            "bearerAuth": []
+          }
+        }
+      ],
+      "security_is_explicitly_disabled": false,
+      "servers": [
+        {
+          "url": "http://127.0.0.1:8080"
+        }
+      ]
+    },
+    {
+      "path": "/users/{userId}/orders",
+      "method": "GET",
+      "operation_id": "getUserOrders",
+      "summary": "Retrieve a user's orders",
+      "description": null,
+      "tags": [],
+      "parameters": [
+        {
+          "name": "userId",
+          "in": "path",
+          "required": true,
+          "description": "Owner user identifier",
+          "schema": {
+            "type": "integer"
+          },
+          "style": null,
+          "explode": null
+        }
+      ],
+      "request_body": null,
+      "responses": {
+        "200": {
+          "description": "Orders retrieved"
+        }
+      },
+      "security": [
+        {
+          "schemes": {
+            "bearerAuth": []
+          }
+        }
+      ],
+      "security_is_explicitly_disabled": false,
+      "servers": [
+        {
+          "url": "http://127.0.0.1:8080"
+        }
+      ]
+    },
+    {
+      "path": "/admin/users",
+      "method": "GET",
+      "operation_id": "getAllUsers",
+      "summary": "Retrieve all users (admin)",
+      "description": null,
+      "tags": [],
+      "parameters": [],
+      "request_body": null,
+      "responses": {
+        "200": {
+          "description": "Users retrieved"
+        }
+      },
+      "security": [],
+      "security_is_explicitly_disabled": true,
+      "servers": [
+        {
+          "url": "http://127.0.0.1:8080"
+        }
+      ]
+    }
+  ]
+}
