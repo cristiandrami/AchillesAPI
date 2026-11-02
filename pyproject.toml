@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "achillesapi"
-version = "0.1.0"
+version = "0.2.0"
 description = "AI-assisted, context-aware API security assessment framework"
 readme = "README.md"
 requires-python = ">=3.11"

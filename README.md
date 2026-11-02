@@ -172,7 +172,7 @@ manually.
 Clone the repository:
 
 ``` bash
-git clone https://github.com/cristiandrami/AchillesAPI.git
+git clone https://github.com/USERNAME/AchillesAPI.git
 cd AchillesAPI
 ```
 
@@ -193,6 +193,9 @@ Run the test suite:
 ``` bash
 uv run pytest -v
 ```
+
+Replace `USERNAME` with the GitHub account or organization that hosts
+the repository.
 
 ### Installing uv on Kali Linux
 
@@ -487,7 +490,6 @@ a confirmed vulnerability without appropriate validation and evidence.
 
 ------------------------------------------------------------------------
 
-
 ## License
 
-AchillesAPI is distributed under the MIT License. See [LICENSE](LICENSE).
+MIT. See [LICENSE](LICENSE).

@@ -21,17 +21,26 @@
 
 ## Day 3 — Endpoint and resource relationship graph
 
-- [ ] Identify path-template variables and candidate object identifiers.
-- [ ] Extract request and response schema properties.
-- [ ] Resolve schema references safely.
-- [ ] Build a NetworkX graph with typed nodes and edges.
-- [ ] Label explicit facts separately from inferred relationships.
-- [ ] Export graph as JSON for inspection.
+- [x] Identify path-template variables and candidate object identifiers.
+- [x] Extract request and response schema properties.
+- [x] Resolve local schema references safely (no remote fetches).
+- [x] Build a NetworkX graph with typed nodes and edges.
+- [x] Label explicit facts separately from inferred relationships.
+- [x] Export graph as JSON for inspection.
+- [x] Add graph tests.
 
-## Day 4–5 — HTTP execution foundation
+## Day 4 — Safe HTTP execution foundation
 
-- [ ] Define explicit target allowlist and authorization boundary.
-- [ ] Add request/response evidence models.
-- [ ] Add safe HTTP client with timeout, request budget, and rate limit.
-- [ ] Add dry-run mode and read-only defaults.
-- [ ] Create integration tests against a local deliberately vulnerable API.
+- [x] Define an exact hostname allowlist and explicit execution opt-in.
+- [x] Add structured request/response evidence models.
+- [x] Add an HTTP client with timeout, request budget, and rate limit.
+- [x] Make dry-run the default and restrict this milestone to GET.
+- [x] Disable redirects, retain TLS verification, and cap captured response data.
+- [x] Add a CLI command and safety tests for dry-run and scope enforcement.
+
+## Day 5 — Controlled local integration testing
+
+- [ ] Create a local deliberately vulnerable API fixture.
+- [ ] Add integration tests that never contact external systems.
+- [ ] Validate evidence serialization and response redaction.
+- [ ] Add repeatable test scenarios for authorization boundaries.

@@ -54,9 +54,30 @@ Local YAML/JSON
    -> CLI summary and JSON export
 ```
 
-## Next architectural milestone
+## Implemented milestones
 
-The next step is an endpoint relationship graph. It should represent operations,
-path parameters, request/response object schemas, and candidate resource
-identifiers. The graph must distinguish facts explicitly declared in OpenAPI
-from hypotheses inferred from naming conventions or AI.
+The relationship graph and safe HTTP execution foundation are described below.
+
+
+## Day 3 — Relationship graph
+
+`core/graph.py` builds a directed NetworkX multigraph containing endpoint,
+resource, identifier, schema, property, and security-scheme nodes. Explicit
+OpenAPI facts are marked `source=explicit`; inferred resource groupings and
+name-based identifier links are marked `source=inferred`. The JSON exporter
+keeps these labels and their evidence so downstream reasoning can distinguish
+facts from hypotheses.
+
+## Day 4 — Safe HTTP execution
+
+`core/http.py` provides a conservative GET-only client. The caller must supply
+an exact hostname allowlist and set `execute=True`; otherwise the client returns
+a dry-run plan without opening a connection. The client disables redirects,
+uses TLS verification, applies a timeout, request budget and rate limit, and
+limits captured response bytes. `models/evidence.py` stores request and
+response metadata while redacting sensitive response headers.
+
+The passive assessment in `core/assessment.py` inspects the specification only.
+Its results are hypotheses, not confirmed vulnerabilities. In particular, a
+path parameter named `userId` is only a reason to test object-level
+authorization, not evidence of BOLA/IDOR.

@@ -13,7 +13,6 @@ from typing import Any
 from urllib.parse import unquote
 
 import yaml
-
 try:
     from openapi_spec_validator import validate_spec
 except ImportError:  # Allows parser development in offline environments.
