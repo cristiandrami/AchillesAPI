@@ -97,7 +97,7 @@ class SafeHTTPClient:
                 timeout=self.timeout,
                 follow_redirects=False,
                 verify=self.verify_tls,
-                headers={"User-Agent": "AchillesAPI/0.2.0 (authorized-security-assessment)"},
+                headers={"User-Agent": "AchillesAPI/0.4.0 (authorized-security-assessment)"},
             ) as client:
                 with client.stream("GET", url) as response:
                     body = bytearray()

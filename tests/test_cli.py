@@ -30,3 +30,14 @@ def test_http_get_cli_is_dry_run_by_default() -> None:
     payload = json.loads(result.stdout)
     assert payload["executed"] is False
     assert payload["response"] is None
+
+
+def test_bola_check_cli_is_dry_run_without_credentials_or_network() -> None:
+    result = runner.invoke(
+        app,
+        ["bola-check", "http://127.0.0.1:8000/api/orders/order-bob"],
+    )
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.stdout)
+    assert payload["executed"] is False
+    assert payload["planned_requests"] == 2

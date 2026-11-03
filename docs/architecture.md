@@ -81,3 +81,27 @@ The passive assessment in `core/assessment.py` inspects the specification only.
 Its results are hypotheses, not confirmed vulnerabilities. In particular, a
 path parameter named `userId` is only a reason to test object-level
 authorization, not evidence of BOLA/IDOR.
+
+## Day 5 — Local BOLA training API
+
+`lab/app.py` provides a FastAPI application intended to run on `127.0.0.1`
+only. It defines Alice and Bob with fixed demo bearer tokens and in-memory
+orders. `/api/orders/{order_id}` intentionally checks authentication but omits
+object ownership checks. `/api/secure/orders/{order_id}` is the control route
+and enforces ownership. The lab is deliberately vulnerable and must not be
+exposed to public or shared networks.
+
+## Day 6 — Two-principal BOLA verification
+
+`core/bola.py` compares the response to one object URL using two distinct bearer
+tokens. The supplied owner token must first establish a successful `200`
+baseline. The second principal is then tested against the same URL. Matching
+successful response representations produce `confirmed_bola`; denial produces
+`protected_for_other_principal`; unexpected or differing responses remain
+inconclusive or require manual review.
+
+The CLI command `bola-check` is dry-run by default and requires `--execute` to
+send traffic. The checker currently rejects non-loopback hostnames and IPs,
+uses only GET, disables redirects, and sends exactly two requests. It assumes
+the operator has correctly identified the object owner; it does not infer
+ownership from the bearer token.

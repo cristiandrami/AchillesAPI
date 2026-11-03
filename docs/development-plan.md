@@ -1,46 +1,28 @@
-# Development plan
+# Development Plan
 
-## Day 1 — Project foundation
+## Completed
 
-- [x] Create Python package layout.
-- [x] Configure `pyproject.toml`, development tools, and CLI entry point.
-- [x] Add example OpenAPI document.
-- [x] Add README and development documentation.
+- **Days 1–2:** OpenAPI loading, validation, normalization, local `$ref` handling, Pydantic models, CLI, and parser tests.
+- **Days 3–4:** Relationship graph, explicit/inferred provenance, passive security assessment, JSON exports, and scoped GET execution.
+- **Days 5–6:** Local vulnerable API lab, secure comparison endpoint, and a loopback-only two-principal BOLA checker with dry-run default and explicit execution.
 
-## Day 2 — OpenAPI intelligence
+## Next milestones
 
-- [x] Load YAML and JSON specifications.
-- [x] Validate OpenAPI 3.x documents.
-- [x] Resolve local JSON Pointer references.
-- [x] Extract operations and metadata.
-- [x] Merge path-level and operation-level parameters.
-- [x] Resolve inherited and operation-level security requirements.
-- [x] Extract security scheme definitions.
-- [x] Export normalized JSON from the CLI.
-- [x] Add automated tests.
+1. Introduce reusable authentication profiles rather than passing two raw bearer tokens to a single check.
+2. Generate candidate object-level authorization tests from OpenAPI paths and identifier parameters.
+3. Add safe test data setup/teardown and reproducible evidence records.
+4. Extend active testing carefully to BFLA and BOPLA scenarios.
+5. Add response comparison, redaction, and report generation.
+6. Integrate AI for contextual test prioritization and explanation, keeping deterministic checks as the source of truth.
 
-## Day 3 — Endpoint and resource relationship graph
 
-- [x] Identify path-template variables and candidate object identifiers.
-- [x] Extract request and response schema properties.
-- [x] Resolve local schema references safely (no remote fetches).
-- [x] Build a NetworkX graph with typed nodes and edges.
-- [x] Label explicit facts separately from inferred relationships.
-- [x] Export graph as JSON for inspection.
-- [x] Add graph tests.
+## v0.4.0 delivered scope
 
-## Day 4 — Safe HTTP execution foundation
+- Multi-endpoint BOLA sweep and low/high role response comparison (GET-only, loopback-only).
+- Explicit local PATCH mass-assignment probe with dry-run default.
+- Non-destructive quote-only SQLi canary (GET-only).
+- Nine-case benign query parameter robustness fuzzing.
+- Offline JWT header/claim inspection without signature verification.
+- Expanded local lab: BOLA vulnerable/protected routes, admin-only route for BFLA, vulnerable/allowlisted profile PATCH routes, and harmless search endpoint.
 
-- [x] Define an exact hostname allowlist and explicit execution opt-in.
-- [x] Add structured request/response evidence models.
-- [x] Add an HTTP client with timeout, request budget, and rate limit.
-- [x] Make dry-run the default and restrict this milestone to GET.
-- [x] Disable redirects, retain TLS verification, and cap captured response data.
-- [x] Add a CLI command and safety tests for dry-run and scope enforcement.
-
-## Day 5 — Controlled local integration testing
-
-- [ ] Create a local deliberately vulnerable API fixture.
-- [ ] Add integration tests that never contact external systems.
-- [ ] Validate evidence serialization and response redaction.
-- [ ] Add repeatable test scenarios for authorization boundaries.
+Known limitations: BOLA/BFLA sweeps are triage tools, not automatic vulnerability proof; BOLA needs meaningful object identifiers supplied via `--path-value`. BFLA currently compares GET endpoints only and requires a role policy review. SQLi probing is intentionally conservative and cannot rule out injection. JWT inspection is decode-only.
