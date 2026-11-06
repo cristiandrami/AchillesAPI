@@ -61,3 +61,56 @@ def test_execution_captures_bounded_body_and_redacts_sensitive_headers(monkeypat
     assert evidence.response.body_preview == "12345"
     assert evidence.response.body_truncated is True
     assert evidence.response.headers["set-cookie"] == "[REDACTED]"
+
+
+def test_auth_material_is_used_but_redacted_in_evidence(monkeypatch) -> None:
+    import httpx
+
+    captured = {}
+
+    class FakeResponse:
+        status_code = 200
+        headers = httpx.Headers({"content-type": "application/json"})
+        encoding = "utf-8"
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+        def iter_bytes(self):
+            yield b"ok"
+
+    class FakeClient:
+        def __init__(self, **_kwargs):
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+        def stream(self, method, url, **kwargs):
+            captured.update(method=method, url=url, **kwargs)
+            return FakeResponse()
+
+    monkeypatch.setattr("achillesapi.core.http.httpx.Client", FakeClient)
+    client = SafeHTTPClient(allowed_hosts={"api.example.test"})
+    evidence = client.request(
+        "GET", "https://api.example.test/items", execute=True,
+        headers={"Authorization": "Bearer top-secret", "X-Partner-Key": "header-secret"},
+        params={"api_key": "query-secret", "page": "2"},
+        cookies={"session": "cookie-secret"},
+        sensitive_query_names={"api_key"},
+        sensitive_header_names={"X-Partner-Key"},
+    )
+    assert captured["headers"]["Authorization"] == "Bearer top-secret"
+    assert captured["params"]["api_key"] == "query-secret"
+    assert captured["cookies"]["session"] == "cookie-secret"
+    assert evidence.request.headers["Authorization"] == "[REDACTED]"
+    assert evidence.request.headers["X-Partner-Key"] == "[REDACTED]"
+    assert "query-secret" not in evidence.request.url
+    assert "%5BREDACTED%5D" in evidence.request.url
+    assert "page=2" in evidence.request.url

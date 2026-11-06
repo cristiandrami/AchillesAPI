@@ -8,7 +8,7 @@ Redirects are disabled so a request cannot silently leave the approved host.
 from __future__ import annotations
 
 import time
-from urllib.parse import urlsplit
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 import httpx
 
@@ -19,7 +19,8 @@ from achillesapi.models.evidence import (
 )
 
 _ALLOWED_METHODS = {"GET"}
-_SENSITIVE_HEADERS = {"authorization", "cookie", "set-cookie", "proxy-authorization"}
+_SENSITIVE_HEADERS = {"authorization", "cookie", "set-cookie", "proxy-authorization", "x-api-key"}
+_SENSITIVE_QUERY_NAMES = {"api_key", "apikey", "access_token", "token", "key", "password", "secret"}
 
 
 class ScopeError(ValueError):
@@ -66,16 +67,52 @@ class SafeHTTPClient:
             raise ScopeError(f"Host {parts.hostname!r} is not in the explicit allowlist.")
 
     @staticmethod
-    def _safe_headers(headers: httpx.Headers) -> dict[str, str]:
+    def _safe_headers(
+        headers: dict[str, str] | httpx.Headers,
+        extra_sensitive_names: set[str] | None = None,
+    ) -> dict[str, str]:
+        sensitive = _SENSITIVE_HEADERS | {name.lower() for name in (extra_sensitive_names or set())}
         return {
-            key: ("[REDACTED]" if key.lower() in _SENSITIVE_HEADERS else value)
+            key: ("[REDACTED]" if key.lower() in sensitive else value)
             for key, value in headers.items()
         }
 
-    def request(self, method: str, url: str, *, execute: bool = False) -> ExecutionEvidence:
+    @staticmethod
+    def _safe_url(
+        url: str,
+        extra_sensitive_names: set[str] | None = None,
+        extra_params: dict[str, str] | None = None,
+    ) -> str:
+        parts = urlsplit(url)
+        sensitive = _SENSITIVE_QUERY_NAMES | {name.lower() for name in (extra_sensitive_names or set())}
+        query_items = parse_qsl(parts.query, keep_blank_values=True)
+        query_items.extend((extra_params or {}).items())
+        query = [(key, "[REDACTED]" if key.lower() in sensitive else value)
+                 for key, value in query_items]
+        return urlunsplit((parts.scheme, parts.netloc, parts.path, urlencode(query), parts.fragment))
+
+    def request(
+        self,
+        method: str,
+        url: str,
+        *,
+        execute: bool = False,
+        headers: dict[str, str] | None = None,
+        params: dict[str, str] | None = None,
+        cookies: dict[str, str] | None = None,
+        sensitive_query_names: set[str] | None = None,
+        sensitive_header_names: set[str] | None = None,
+    ) -> ExecutionEvidence:
         """Create a dry-run plan or perform one scoped GET request."""
         self._validate_target(method, url)
-        request_evidence = RequestEvidence(method=method.upper(), url=url)
+        request_headers = headers or {}
+        request_params = params or {}
+        request_cookies = cookies or {}
+        request_evidence = RequestEvidence(
+            method=method.upper(),
+            url=self._safe_url(url, sensitive_query_names, request_params),
+            headers=self._safe_headers(request_headers, sensitive_header_names),
+        )
         if not execute:
             return ExecutionEvidence(
                 request=request_evidence,
@@ -99,7 +136,9 @@ class SafeHTTPClient:
                 verify=self.verify_tls,
                 headers={"User-Agent": "AchillesAPI/0.4.0 (authorized-security-assessment)"},
             ) as client:
-                with client.stream("GET", url) as response:
+                with client.stream(
+                    "GET", url, headers=request_headers, params=request_params, cookies=request_cookies
+                ) as response:
                     body = bytearray()
                     truncated = False
                     for chunk in response.iter_bytes():

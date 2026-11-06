@@ -1,0 +1,28 @@
+# Keep credentials out of this file. Populate the referenced environment variables.
+profiles:
+  - name: alice
+    role: user
+    type: bearer
+    token_env: ACHILLES_ALICE_TOKEN
+  - name: bob
+    role: user
+    type: bearer
+    token_env: ACHILLES_BOB_TOKEN
+  - name: admin
+    role: admin
+    type: bearer
+    token_env: ACHILLES_ADMIN_TOKEN
+  - name: admin-basic
+    role: admin
+    type: basic
+    username_env: ACHILLES_ADMIN_USERNAME
+    password_env: ACHILLES_ADMIN_PASSWORD
+  - name: partner-api-key
+    type: api_key
+    location: header
+    parameter_name: X-API-Key
+    value_env: ACHILLES_PARTNER_API_KEY
+  - name: legacy-cookie
+    type: cookie
+    parameter_name: sessionid
+    value_env: ACHILLES_SESSION_ID

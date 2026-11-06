@@ -8,11 +8,15 @@ from pathlib import Path
 import typer
 
 from achillesapi import __version__
+from achillesapi.ai.analyzer import analyze_api_locally
+from achillesapi.ai.local import LocalAIError
 from achillesapi.core.assessment import assess_api, assessment_to_dict
 from achillesapi.core.advanced import (
     AdvancedCheckError, bola_sweep, bfla_sweep, mass_assignment_check,
     sqli_probe, fuzz_query_parameter, inspect_jwt,
 )
+from achillesapi.core.auth import AuthenticationConfigError, load_authentication_manager
+from achillesapi.core.authorization import authorization_matrix
 from achillesapi.core.bola import BolaCheckError, check_bola
 from achillesapi.core.graph import build_api_graph, graph_to_dict
 from achillesapi.core.http import RequestBudgetExceeded, SafeHTTPClient, ScopeError
@@ -127,6 +131,33 @@ def assess(
         )
 
 
+def _bearer_token_from_profile(manager, profile_name: str) -> str:
+    """Resolve a named profile for legacy bearer-only authorization sweeps."""
+    material = manager.resolve(profile_name)
+    authorization = material.headers.get("Authorization", "")
+    if not authorization.startswith("Bearer "):
+        raise AuthenticationConfigError(
+            f"Profile {profile_name!r} must be a Bearer profile for BOLA/BFLA sweeps."
+        )
+    token = authorization.removeprefix("Bearer ")
+    if not token:
+        raise AuthenticationConfigError(f"Profile {profile_name!r} resolved an empty bearer token.")
+    return token
+
+
+@app.command("auth-profiles")
+def auth_profiles(
+    config: Path = typer.Option(..., "--config", exists=True, dir_okay=False, readable=True),
+) -> None:
+    """Validate and list authentication profiles without displaying secret values."""
+    try:
+        manager = load_authentication_manager(config)
+    except AuthenticationConfigError as exc:
+        typer.echo(f"Authentication configuration error: {exc}", err=True)
+        raise typer.Exit(code=1) from exc
+    typer.echo(json.dumps({"profiles": manager.describe()}, indent=2))
+
+
 @app.command("http-get")
 def http_get(
     url: str = typer.Argument(..., help="Absolute URL on an explicitly allowlisted host."),
@@ -138,14 +169,29 @@ def http_get(
     ),
     timeout: float = typer.Option(10.0, min=0.1, max=60.0),
     max_requests: int = typer.Option(1, min=1, max=10),
+    auth_config: Path | None = typer.Option(None, "--auth-config", exists=True, dir_okay=False),
+    auth_profile: str | None = typer.Option(None, "--auth-profile"),
 ) -> None:
     """Perform a scoped GET request; dry-run is the default and only GET is enabled."""
+    if bool(auth_config) != bool(auth_profile):
+        typer.echo("Both --auth-config and --auth-profile must be supplied together.", err=True)
+        raise typer.Exit(code=1)
     try:
+        auth = None
+        if auth_config and auth_profile:
+            auth = load_authentication_manager(auth_config).resolve(auth_profile)
         client = SafeHTTPClient(
             allowed_hosts=set(allow_host), timeout=timeout, max_requests=max_requests
         )
-        evidence = client.request("GET", url, execute=execute)
-    except (ScopeError, RequestBudgetExceeded, ValueError) as exc:
+        evidence = client.request(
+            "GET", url, execute=execute,
+            headers=auth.headers if auth else None,
+            params=auth.params if auth else None,
+            cookies=auth.cookies if auth else None,
+            sensitive_query_names=set(auth.params) if auth else None,
+            sensitive_header_names=set(auth.headers) if auth else None,
+        )
+    except (AuthenticationConfigError, ScopeError, RequestBudgetExceeded, ValueError) as exc:
         typer.echo(f"Blocked: {exc}", err=True)
         raise typer.Exit(code=1) from exc
     typer.echo(json.dumps(evidence.model_dump(mode="json"), indent=2))
@@ -204,19 +250,34 @@ def bola_sweep_command(
     base_url: str = typer.Option(..., "--base-url"),
     owner_token: str | None = typer.Option(None, "--owner-token", hide_input=True),
     other_token: str | None = typer.Option(None, "--other-token", hide_input=True),
+    auth_config: Path | None = typer.Option(None, "--auth-config", exists=True, dir_okay=False),
+    owner_profile: str | None = typer.Option(None, "--owner-profile"),
+    other_profile: str | None = typer.Option(None, "--other-profile"),
     path_value: list[str] = typer.Option([], "--path-value", help="Path placeholder NAME=VALUE; repeat as needed."),
     timeout: float = typer.Option(5.0, min=0.1, max=15.0),
     output: Path | None = typer.Option(None, "--output", "-o"),
 ) -> None:
     """Compare two principals across all GET operations (loopback only)."""
-    if owner_token is None:
-        owner_token = typer.prompt("Owner bearer token", hide_input=True)
-    if other_token is None:
-        other_token = typer.prompt("Other principal bearer token", hide_input=True)
     try:
+        using_profiles = bool(auth_config or owner_profile or other_profile)
+        if using_profiles:
+            if not (auth_config and owner_profile and other_profile):
+                raise AuthenticationConfigError(
+                    "--auth-config, --owner-profile and --other-profile must be supplied together."
+                )
+            if owner_token or other_token:
+                raise AuthenticationConfigError("Use profile options or raw token options, not both.")
+            manager = load_authentication_manager(auth_config)
+            owner_token = _bearer_token_from_profile(manager, owner_profile)
+            other_token = _bearer_token_from_profile(manager, other_profile)
+        else:
+            if owner_token is None:
+                owner_token = typer.prompt("Owner bearer token", hide_input=True)
+            if other_token is None:
+                other_token = typer.prompt("Other principal bearer token", hide_input=True)
         spec = load_openapi(specification)
         result = bola_sweep(spec, base_url, owner_token, other_token, _path_values(path_value), timeout)
-    except (AdvancedCheckError, OpenAPIParseError, ValueError, OSError) as exc:
+    except (AuthenticationConfigError, AdvancedCheckError, OpenAPIParseError, ValueError, OSError) as exc:
         typer.echo(f"Blocked: {exc}", err=True)
         raise typer.Exit(code=1) from exc
     rendered = json.dumps(result, indent=2)
@@ -232,19 +293,34 @@ def bfla_sweep_command(
     base_url: str = typer.Option(..., "--base-url"),
     low_token: str | None = typer.Option(None, "--low-token", hide_input=True),
     high_token: str | None = typer.Option(None, "--high-token", hide_input=True),
+    auth_config: Path | None = typer.Option(None, "--auth-config", exists=True, dir_okay=False),
+    low_profile: str | None = typer.Option(None, "--low-profile"),
+    high_profile: str | None = typer.Option(None, "--high-profile"),
     path_value: list[str] = typer.Option([], "--path-value"),
     timeout: float = typer.Option(5.0, min=0.1, max=15.0),
     output: Path | None = typer.Option(None, "--output", "-o"),
 ) -> None:
     """Compare low/high privilege responses across GET operations (loopback only)."""
-    if low_token is None:
-        low_token = typer.prompt("Low-privilege bearer token", hide_input=True)
-    if high_token is None:
-        high_token = typer.prompt("High-privilege bearer token", hide_input=True)
     try:
+        using_profiles = bool(auth_config or low_profile or high_profile)
+        if using_profiles:
+            if not (auth_config and low_profile and high_profile):
+                raise AuthenticationConfigError(
+                    "--auth-config, --low-profile and --high-profile must be supplied together."
+                )
+            if low_token or high_token:
+                raise AuthenticationConfigError("Use profile options or raw token options, not both.")
+            manager = load_authentication_manager(auth_config)
+            low_token = _bearer_token_from_profile(manager, low_profile)
+            high_token = _bearer_token_from_profile(manager, high_profile)
+        else:
+            if low_token is None:
+                low_token = typer.prompt("Low-privilege bearer token", hide_input=True)
+            if high_token is None:
+                high_token = typer.prompt("High-privilege bearer token", hide_input=True)
         spec = load_openapi(specification)
         result = bfla_sweep(spec, base_url, low_token, high_token, _path_values(path_value), timeout)
-    except (AdvancedCheckError, OpenAPIParseError, ValueError, OSError) as exc:
+    except (AuthenticationConfigError, AdvancedCheckError, OpenAPIParseError, ValueError, OSError) as exc:
         typer.echo(f"Blocked: {exc}", err=True)
         raise typer.Exit(code=1) from exc
     rendered = json.dumps(result, indent=2)
@@ -303,6 +379,35 @@ def mass_assignment_command(
     typer.echo(json.dumps(result, indent=2))
 
 
+@app.command("role-matrix")
+def role_matrix_command(
+    specification: Path = typer.Argument(..., exists=True, dir_okay=False),
+    base_url: str = typer.Option(..., "--base-url"),
+    auth_config: Path = typer.Option(..., "--auth-config", exists=True, dir_okay=False),
+    profile: list[str] = typer.Option(..., "--profile", help="Profile to include; repeat for each identity (2-10)."),
+    path_value: list[str] = typer.Option([], "--path-value", help="Path placeholder NAME=VALUE; repeat as needed."),
+    timeout: float = typer.Option(5.0, min=0.1, max=15.0),
+    output: Path | None = typer.Option(Path("reports/role-matrix.json"), "--output", "-o"),
+) -> None:
+    """Compare GET access and JSON property visibility across auth profiles (loopback only)."""
+    try:
+        if len(profile) < 2 or len(profile) > 10 or len(set(profile)) != len(profile):
+            raise AdvancedCheckError("Supply 2-10 distinct --profile values.")
+        manager = load_authentication_manager(auth_config)
+        materials = {name: manager.resolve(name) for name in profile}
+        spec = load_openapi(specification)
+        result = authorization_matrix(spec, base_url, materials, _path_values(path_value), timeout)
+    except (AuthenticationConfigError, AdvancedCheckError, OpenAPIParseError, ValueError, OSError) as exc:
+        typer.echo(f"Blocked: {exc}", err=True)
+        raise typer.Exit(code=1) from exc
+    rendered = json.dumps(result, indent=2, ensure_ascii=False)
+    if output:
+        output.parent.mkdir(parents=True, exist_ok=True)
+        output.write_text(rendered + "\n", encoding="utf-8")
+        typer.echo(f"Role matrix written to {output}")
+    typer.echo(rendered)
+
+
 @app.command("jwt-inspect")
 def jwt_inspect_command(
     token: str | None = typer.Argument(None, help="Compact JWT; omitted means secure prompt."),
@@ -315,6 +420,67 @@ def jwt_inspect_command(
         typer.echo(f"Error: {exc}", err=True)
         raise typer.Exit(code=1) from exc
     typer.echo(json.dumps(result, indent=2))
+
+
+@app.command("ai-analyze")
+def ai_analyze_command(
+    specification: Path = typer.Argument(..., exists=True, file_okay=True, dir_okay=False, readable=True),
+    output: Path | None = typer.Option(None, "--output", "-o"),
+    model: str = typer.Option("achilles-local", "--model", help="Model already installed in local Ollama."),
+    endpoint: str = typer.Option("http://127.0.0.1:11434", "--endpoint", help="Loopback Ollama endpoint only."),
+    timeout: float = typer.Option(120.0, min=1.0, max=300.0),
+) -> None:
+    """Analyze an OpenAPI specification with the local Ollama model only."""
+    try:
+        parsed = analyze_openapi_file(specification)
+        result = analyze_api_locally(parsed, endpoint=endpoint, model=model, timeout=timeout)
+    except (OpenAPIParseError, LocalAIError, ValueError, OSError) as exc:
+        typer.echo(f"Local AI analysis failed: {exc}", err=True)
+        raise typer.Exit(code=1) from exc
+    rendered = json.dumps(result, indent=2, ensure_ascii=False)
+    if output:
+        output.parent.mkdir(parents=True, exist_ok=True)
+        output.write_text(rendered + "\n", encoding="utf-8")
+        typer.echo(f"Local AI report written to {output}")
+    typer.echo(rendered)
+
+
+@app.command("scan")
+def scan_command(
+    specification: Path = typer.Argument(..., exists=True, file_okay=True, dir_okay=False, readable=True),
+    output: Path = typer.Option(Path("reports/scan.json"), "--output", "-o"),
+    with_ai: bool = typer.Option(False, "--ai", help="Add advisory analysis from local Ollama."),
+    model: str = typer.Option("achilles-local", "--model", help="Local Ollama model name."),
+    endpoint: str = typer.Option("http://127.0.0.1:11434", "--endpoint", help="Loopback Ollama endpoint only."),
+    skip_validation: bool = typer.Option(False, "--skip-validation"),
+) -> None:
+    """Run passive OpenAPI assessment; optionally add local-only AI interpretation. No target traffic."""
+    try:
+        parsed = analyze_openapi_file(specification, validate=not skip_validation)
+        deterministic = assessment_to_dict(assess_api(parsed))
+        result: dict[str, object] = {
+            "project": "AchillesAPI",
+            "version": __version__,
+            "scan_type": "passive_openapi_only",
+            "target_requests_sent": 0,
+            "api": {"title": parsed.title, "version": parsed.version, "endpoint_count": parsed.endpoint_count},
+            "assessment": deterministic,
+            "ai_analysis": None,
+            "note": "This command does not send requests to the target API. Active checks remain separate and scoped.",
+        }
+        if with_ai:
+            ai_result = analyze_api_locally(parsed, endpoint=endpoint, model=model)
+            result["ai_analysis"] = ai_result["ai_analysis"]
+        output.parent.mkdir(parents=True, exist_ok=True)
+        output.write_text(json.dumps(result, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    except (OpenAPIParseError, LocalAIError, ValueError, OSError) as exc:
+        typer.echo(f"Scan failed: {exc}", err=True)
+        raise typer.Exit(code=1) from exc
+    typer.echo(f"Passive assessment completed: {parsed.endpoint_count} endpoints, "
+               f"{len(deterministic['findings'])} hypotheses. Requests sent: 0.")
+    if with_ai:
+        typer.echo(f"Local AI analysis completed with {model}.")
+    typer.echo(f"Report written to {output}")
 
 
 if __name__ == "__main__":
