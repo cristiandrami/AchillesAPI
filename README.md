@@ -122,7 +122,7 @@ Il comando di installazione remoto va eseguito soltanto dopo aver verificato l'o
 **Dalla cartella principale del repository** (quella che contiene `deployment/Modelfile`):
 
 ```powershell
-ollama pull llama3.2:3b
+ollama pull qwen3:8b 
 ollama create achilles-local -f .\deployment\Modelfile
 ollama list
 ```
@@ -130,12 +130,12 @@ ollama list
 Su **Linux**, cambia soltanto il percorso del Modelfile:
 
 ```bash
-ollama pull llama3.2:3b
+ollama pull qwen3:8b 
 ollama create achilles-local -f deployment/Modelfile
 ollama list
 ```
 
-Il `deployment/Modelfile` incluso usa `FROM llama3.2:3b`, parametri per output contenuto e istruzioni per produrre analisi strutturate senza inventare evidenze. **Esegui prima `ollama pull`**: `ollama create` non funziona correttamente se il modello base o il Modelfile non è disponibile.
+Il `deployment/Modelfile` incluso usa `FROM qwen3:8b`, parametri per output contenuto e istruzioni per produrre analisi strutturate senza inventare evidenze. **Esegui prima `ollama pull`**: `ollama create` non funziona correttamente se il modello base o il Modelfile non è disponibile.
 
 ### 4.3 Verifica Ollama
 
@@ -173,7 +173,7 @@ Il listener deve essere locale (`127.0.0.1:11434`), non `0.0.0.0`. Lo script imp
 
 ### 4.5 Requisiti hardware e alternative
 
-- **CPU senza GPU, 8 GB RAM:** `llama3.2:3b` è il modello predefinito del progetto; con carico elevato può risultare lento. Valuta un modello più piccolo, ma **devi impostarne il nome nella dashboard** e la qualità delle risposte può ridursi.
+- **CPU senza GPU, 8 GB RAM:** `qwen3:8b` è il modello predefinito del progetto; con carico elevato può risultare lento. Valuta un modello più piccolo, ma **devi impostarne il nome nella dashboard** e la qualità delle risposte può ridursi.
 - **GPU NVIDIA compatibile:** l'inferenza può essere più veloce, a seconda di driver, RAM/VRAM e modello.
 - **Senza Ollama:** disabilita i controlli AI; discovery, pianificazione offline e controlli tradizionali rimangono disponibili.
 
@@ -349,7 +349,7 @@ Non presumere che credenziali o path di una distribuzione precedente del laborat
 <summary><strong>`ollama create`: manca il Modelfile o il modello base</strong></summary>
 
 - Da **root del progetto** verifica che esista `deployment/Modelfile`.
-- Esegui `ollama pull llama3.2:3b` prima di creare `achilles-local`.
+- Esegui `ollama pull qwen3:8b` prima di creare `achilles-local`.
 - Windows: `ollama create achilles-local -f .\deployment\Modelfile`.
 - Linux: `ollama create achilles-local -f deployment/Modelfile`.
 
