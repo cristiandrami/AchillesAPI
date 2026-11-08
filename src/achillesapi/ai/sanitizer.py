@@ -20,6 +20,8 @@ _SECRET_ASSIGNMENT = re.compile(
 
 def redact_text(value: str) -> str:
     """Redact common credentials and personal identifiers from arbitrary text."""
+    # IN PRATICA: Sostituisce stringhe potenzialmente segrete con un segnaposto.
+    # SICUREZZA: Non contatta direttamente l'API target.
     value = _BEARER.sub("Bearer [REDACTED]", value)
     value = _JWT.sub("[REDACTED_JWT]", value)
     value = _SECRET_ASSIGNMENT.sub(r"\1[REDACTED]", value)
@@ -29,6 +31,12 @@ def redact_text(value: str) -> str:
 
 def sanitize(value: Any, *, parent_key: str = "") -> Any:
     """Recursively sanitize JSON-compatible evidence; never mutate the input."""
+    # IN PRATICA: Elimina campi sensibili prima di condividere metadati con l'AI.
+    # SICUREZZA: Non contatta direttamente l'API target.
+    # Named boolean *indicators* are not secrets, even if their names contain
+    # "credential". Actual credential values remain redacted.
+    if parent_key in {"allow_credentials", "cors_credentials_allowed"} and type(value) is bool:
+        return value
     if _SENSITIVE_KEY.search(parent_key):
         return "[REDACTED]"
     if isinstance(value, dict):

@@ -1,0 +1,33 @@
+# Example only. The server URL is intentionally invalid; adapt to your own
+# disposable test API, use approved accounts and verify correct response IDs.
+workflows:
+  - name: asset_disposable
+    create:
+      operation: 'POST /v2/assets'
+      identity: owner
+      body:
+        label: 'achilles-disposable-object'
+      id_pointer: '/asset_ref'
+      marker_field: label
+    read:
+      operation: 'GET /v2/assets/{asset_ref}'
+      identity: owner
+      id_parameter: asset_ref
+      id_pointer: '/asset_ref'
+      marker_pointer: '/label'
+    access:
+      - identity: other
+        expected: deny
+        category: BOLA
+    restricted_response_fields:
+      - internal_only
+    mutation:
+      operation: 'PATCH /v2/assets/{asset_ref}'
+      identity: owner
+      body:
+        internal_only: true
+      restricted_fields:
+        - internal_only
+    cleanup:
+      operation: 'DELETE /v2/assets/{asset_ref}'
+      identity: owner

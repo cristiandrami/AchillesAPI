@@ -28,6 +28,8 @@ class PrincipalResponse(BaseModel):
     @property
     def body_sha256(self) -> str:
         """Fingerprint of the canonical response, without exposing its contents."""
+        # IN PRATICA: Calcola un'impronta della risposta senza mostrarne il contenuto.
+        # SICUREZZA: Non contatta direttamente l'API target.
         return hashlib.sha256(_canonical_body(self.body).encode("utf-8")).hexdigest()
 
 
@@ -49,6 +51,10 @@ class BolaCheckResult(BaseModel):
 
 
 def _validate_local_url(url: str) -> str:
+    """In pratica: Accetta solo URL locali per il vecchio controllo BOLA.
+
+    Attenzione: Non contatta direttamente l'API target.
+    """
     parts = urlsplit(url)
     if parts.scheme not in {"http", "https"} or not parts.hostname:
         raise BolaCheckError("Target must be an absolute HTTP(S) URL.")
@@ -68,6 +74,10 @@ def _validate_local_url(url: str) -> str:
 
 
 def _request(url: str, token: str, timeout: float) -> PrincipalResponse:
+    """In pratica: Esegue una richiesta HTTP nel controllo BOLA legacy.
+
+    Attenzione: Puo inviare richieste HTTP; verificare scope, identita e autorizzazioni.
+    """
     started = time.monotonic()
     with httpx.Client(
         timeout=timeout,
@@ -109,6 +119,8 @@ def check_bola(
     A positive result requires the owner baseline to succeed and the second
     principal to receive the same successful object representation.
     """
+    # IN PRATICA: Confronta la risposta a un oggetto tra proprietario e altra identità, senza dedurre ownership.
+    # SICUREZZA: Puo inviare richieste HTTP; verificare scope, identita e autorizzazioni.
     _validate_local_url(url)
     if not owner_token or not other_token:
         raise BolaCheckError("Both bearer tokens must be provided.")
@@ -172,6 +184,10 @@ def check_bola(
 
 
 def _canonical_body(body: str) -> str:
+    """In pratica: Normalizza il corpo di una risposta prima del confronto.
+
+    Attenzione: Non contatta direttamente l'API target.
+    """
     try:
         return json.dumps(json.loads(body), sort_keys=True, separators=(",", ":"))
     except (json.JSONDecodeError, TypeError):

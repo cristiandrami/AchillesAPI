@@ -1,0 +1,4 @@
+rules:
+- operation: GET /health
+  identity: owner
+  expected: deny

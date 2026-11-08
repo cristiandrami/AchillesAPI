@@ -1,0 +1,267 @@
+{
+  "responses": [
+    {
+      "method": "GET",
+      "path": "/health",
+      "status_code": 200,
+      "headers": {},
+      "body_preview": ""
+    },
+    {
+      "method": "GET",
+      "path": "/health",
+      "status_code": 200,
+      "headers": {},
+      "body_preview": ""
+    },
+    {
+      "method": "GET",
+      "path": "/projects",
+      "status_code": 200,
+      "headers": {},
+      "body_preview": ""
+    },
+    {
+      "method": "GET",
+      "path": "/projects",
+      "status_code": 200,
+      "headers": {},
+      "body_preview": ""
+    },
+    {
+      "method": "GET",
+      "path": "/projects",
+      "status_code": 200,
+      "headers": {},
+      "body_preview": ""
+    },
+    {
+      "method": "GET",
+      "path": "/projects",
+      "status_code": 401,
+      "headers": {},
+      "body_preview": ""
+    },
+    {
+      "method": "GET",
+      "path": "/projects",
+      "status_code": 200,
+      "headers": {},
+      "body_preview": ""
+    },
+    {
+      "method": "GET",
+      "path": "/admin/audit",
+      "status_code": 200,
+      "headers": {},
+      "body_preview": ""
+    },
+    {
+      "method": "GET",
+      "path": "/admin/audit",
+      "status_code": 200,
+      "headers": {},
+      "body_preview": ""
+    },
+    {
+      "method": "GET",
+      "path": "/admin/audit",
+      "status_code": 200,
+      "headers": {},
+      "body_preview": ""
+    },
+    {
+      "method": "GET",
+      "path": "/admin/audit",
+      "status_code": 401,
+      "headers": {},
+      "body_preview": ""
+    },
+    {
+      "method": "GET",
+      "path": "/admin/audit",
+      "status_code": 200,
+      "headers": {},
+      "body_preview": ""
+    },
+    {
+      "method": "GET",
+      "path": "/secure/admin/audit",
+      "status_code": 200,
+      "headers": {},
+      "body_preview": ""
+    },
+    {
+      "method": "GET",
+      "path": "/secure/admin/audit",
+      "status_code": 403,
+      "headers": {},
+      "body_preview": ""
+    },
+    {
+      "method": "GET",
+      "path": "/secure/admin/audit",
+      "status_code": 403,
+      "headers": {},
+      "body_preview": ""
+    },
+    {
+      "method": "GET",
+      "path": "/secure/admin/audit",
+      "status_code": 401,
+      "headers": {},
+      "body_preview": ""
+    },
+    {
+      "method": "GET",
+      "path": "/secure/admin/audit",
+      "status_code": 200,
+      "headers": {},
+      "body_preview": ""
+    },
+    {
+      "method": "GET",
+      "path": "/profile/exposed",
+      "status_code": 200,
+      "headers": {},
+      "body_preview": ""
+    },
+    {
+      "method": "GET",
+      "path": "/profile/exposed",
+      "status_code": 200,
+      "headers": {},
+      "body_preview": ""
+    },
+    {
+      "method": "GET",
+      "path": "/profile/exposed",
+      "status_code": 200,
+      "headers": {},
+      "body_preview": ""
+    },
+    {
+      "method": "GET",
+      "path": "/profile/exposed",
+      "status_code": 401,
+      "headers": {},
+      "body_preview": ""
+    },
+    {
+      "method": "GET",
+      "path": "/profile/exposed",
+      "status_code": 200,
+      "headers": {},
+      "body_preview": ""
+    },
+    {
+      "method": "GET",
+      "path": "/profile/safe",
+      "status_code": 200,
+      "headers": {},
+      "body_preview": ""
+    },
+    {
+      "method": "GET",
+      "path": "/profile/safe",
+      "status_code": 200,
+      "headers": {},
+      "body_preview": ""
+    },
+    {
+      "method": "GET",
+      "path": "/profile/safe",
+      "status_code": 200,
+      "headers": {},
+      "body_preview": ""
+    },
+    {
+      "method": "GET",
+      "path": "/profile/safe",
+      "status_code": 401,
+      "headers": {},
+      "body_preview": ""
+    },
+    {
+      "method": "GET",
+      "path": "/profile/safe",
+      "status_code": 200,
+      "headers": {},
+      "body_preview": ""
+    },
+    {
+      "method": "GET",
+      "path": "/misconfigured/cors",
+      "status_code": 200,
+      "headers": {},
+      "body_preview": ""
+    },
+    {
+      "method": "GET",
+      "path": "/misconfigured/cors",
+      "status_code": 200,
+      "headers": {},
+      "body_preview": ""
+    },
+    {
+      "method": "GET",
+      "path": "/secure/cors",
+      "status_code": 200,
+      "headers": {},
+      "body_preview": ""
+    },
+    {
+      "method": "GET",
+      "path": "/secure/cors",
+      "status_code": 200,
+      "headers": {},
+      "body_preview": ""
+    },
+    {
+      "method": "POST",
+      "path": "/projects",
+      "status_code": 201,
+      "headers": {},
+      "body_preview": ""
+    },
+    {
+      "method": "GET",
+      "path": "/projects/{project_ref}",
+      "status_code": 200,
+      "headers": {},
+      "body_preview": ""
+    },
+    {
+      "method": "GET",
+      "path": "/projects/{project_ref}",
+      "status_code": 200,
+      "headers": {},
+      "body_preview": ""
+    },
+    {
+      "method": "GET",
+      "path": "/projects/{project_ref}",
+      "status_code": 200,
+      "headers": {},
+      "body_preview": ""
+    },
+    {
+      "method": "DELETE",
+      "path": "/projects/{project_ref}",
+      "status_code": 204,
+      "headers": {},
+      "body_preview": ""
+    },
+    {
+      "method": "GET",
+      "path": "/projects/{project_ref}",
+      "status_code": 404,
+      "headers": {},
+      "body_preview": ""
+    }
+  ],
+  "limitations": [
+    "Dati derivati da metadati di assessment: header, body e valori delle risposte non sono disponibili.",
+    "Una correlazione AI non prova una vulnerabilità senza evidenze ulteriori."
+  ]
+}

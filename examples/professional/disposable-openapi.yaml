@@ -1,0 +1,91 @@
+openapi: 3.0.3
+info:
+  title: Example Disposable Asset API
+  version: '1.0'
+servers:
+  - url: https://api.example.invalid
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+paths:
+  /v2/assets:
+    post:
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [label]
+              properties:
+                label:
+                  type: string
+                  maxLength: 80
+                internal_only:
+                  type: boolean
+                  readOnly: true
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  asset_ref:
+                    type: string
+  /v2/assets/{asset_ref}:
+    parameters:
+      - name: asset_ref
+        in: path
+        required: true
+        schema:
+          type: string
+    get:
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Asset
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  asset_ref:
+                    type: string
+                  label:
+                    type: string
+                  internal_only:
+                    type: boolean
+                    readOnly: true
+        '404':
+          description: Not found
+    patch:
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                label:
+                  type: string
+                internal_only:
+                  type: boolean
+                  readOnly: true
+      responses:
+        '200':
+          description: Updated
+    delete:
+      security:
+        - bearerAuth: []
+      responses:
+        '204':
+          description: Deleted

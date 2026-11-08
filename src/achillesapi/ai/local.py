@@ -17,6 +17,8 @@ class LocalAIError(RuntimeError):
 
 def _local_endpoint(endpoint: str) -> tuple[str, int]:
     """Accept only literal loopback hostnames; do not perform DNS resolution."""
+    # IN PRATICA: Esegue la fase ' local endpoint' del modulo local.
+    # SICUREZZA: Non contatta direttamente l'API target.
     try:
         parsed = urlsplit(endpoint)
         if parsed.scheme != "http" or parsed.username or parsed.password:
@@ -41,6 +43,10 @@ def _local_endpoint(endpoint: str) -> tuple[str, int]:
 
 
 def _extract_json(content: str) -> dict[str, Any]:
+    """In pratica: Ricava il blocco JSON dalla risposta testuale del modello.
+
+    Attenzione: Non contatta direttamente l'API target.
+    """
     text = content.strip()
     if text.startswith("```"):
         text = text.strip("`")
@@ -59,6 +65,10 @@ def _extract_json(content: str) -> dict[str, Any]:
 
 
 def _validate_result(payload: dict[str, Any]) -> dict[str, Any]:
+    """In pratica: Controlla la struttura e la coerenza del risultato ricevuto dal modello.
+
+    Attenzione: Non contatta direttamente l'API target.
+    """
     required = {"executive_summary", "risk_observations", "recommended_tests", "limitations"}
     if not required.issubset(payload):
         missing = ", ".join(sorted(required - set(payload)))
@@ -86,6 +96,8 @@ def analyze_with_ollama(
     timeout: float = 120.0,
 ) -> dict[str, Any]:
     """Send sanitized OpenAPI metadata and deterministic findings to Ollama."""
+    # IN PRATICA: Invia soltanto dati sanitizzati al modello Ollama locale.
+    # SICUREZZA: Puo contattare Ollama sul computer locale, ma non l'API target.
     if not model or len(model) > 128 or any(char.isspace() for char in model):
         raise LocalAIError("Invalid local model name.")
     if not 1 <= timeout <= 300:
@@ -123,25 +135,71 @@ def analyze_with_ollama(
         ],
         "options": {"temperature": 0.1, "num_ctx": 4096, "num_predict": 1024},
     }).encode("utf-8")
-    connection: http.client.HTTPConnection | None = None
-    try:
-        connection = http.client.HTTPConnection(host, port, timeout=timeout)
-        connection.request("POST", "/api/chat", body=body, headers={"Content-Type": "application/json"})
-        response = connection.getresponse()
-        raw = response.read(2_000_001)
-        if len(raw) > 2_000_000:
-            raise LocalAIError("Ollama response exceeded the 2 MB safety limit.")
-        if response.status != 200:
-            raise LocalAIError(f"Ollama returned HTTP {response.status}.")
-        envelope = json.loads(raw.decode("utf-8"))
-        content = envelope.get("message", {}).get("content")
-        if not isinstance(content, str):
-            raise LocalAIError("Ollama response has no message.content field.")
-        return _validate_result(_extract_json(content))
-    except LocalAIError:
-        raise
-    except (OSError, http.client.HTTPException, UnicodeDecodeError, json.JSONDecodeError) as exc:
-        raise LocalAIError(f"Unable to reach local Ollama or parse its response: {exc}") from exc
-    finally:
-        if connection is not None:
-            connection.close()
+    # The first reply may be truncated or malformed even with format=json.
+    # Retry once using a strict JSON Schema and a small, explicit repair prompt.
+    # This is local-only; invalid text is never accepted as a security finding.
+    schema = {
+        "type": "object", "additionalProperties": False,
+        "required": ["executive_summary", "risk_observations", "recommended_tests", "limitations"],
+        "properties": {
+            "executive_summary": {"type": "string"},
+            "risk_observations": {"type": "array", "items": {"type": "string"}},
+            "recommended_tests": {"type": "array", "items": {"type": "string"}},
+            "limitations": {"type": "array", "items": {"type": "string"}},
+        },
+    }
+    retry_reason: str | None = None
+    for attempt in range(2):
+        request_data = json.loads(body)
+        if attempt:
+            request_data["format"] = schema
+            request_data["options"]["num_predict"] = 2048
+            request_data["messages"] = [
+                {"role": "system", "content": system},
+                {"role": "user", "content": (
+                    "La risposta precedente non rispettava il formato JSON richiesto. "
+                    "Genera un oggetto JSON COMPLETO con i quattro campi richiesti, "
+                    "liste vuote se non hai osservazioni, senza testo esterno. "
+                    "Non inventare vulnerabilita. Ecco i dati sanitizzati (eventualmente abbreviati): "
+                    + json.dumps(evidence, ensure_ascii=False)[:10000]
+                )},
+            ]
+        connection: http.client.HTTPConnection | None = None
+        try:
+            connection = http.client.HTTPConnection(host, port, timeout=timeout)
+            connection.request(
+                "POST", "/api/chat", body=json.dumps(request_data, ensure_ascii=False).encode("utf-8"),
+                headers={"Content-Type": "application/json"},
+            )
+            response = connection.getresponse()
+            raw = response.read(2_000_001)
+            if len(raw) > 2_000_000:
+                raise LocalAIError("Ollama response exceeded the 2 MB safety limit.")
+            if response.status != 200:
+                raise LocalAIError(f"Ollama returned HTTP {response.status}. Check model/format support.")
+            if not raw.strip():
+                raise LocalAIError("Ollama ha restituito una risposta vuota. Verifica servizio e modello locale.")
+            envelope = json.loads(raw.decode("utf-8"))
+            content = envelope.get("message", {}).get("content")
+            if not isinstance(content, str):
+                raise LocalAIError("Ollama response has no message.content field.")
+            try:
+                return _validate_result(_extract_json(content))
+            except LocalAIError as exc:
+                retry_reason = str(exc)
+                if attempt == 0:
+                    continue
+                ended = envelope.get("done_reason", "unknown")
+                raise LocalAIError(
+                    "Ollama locale ha prodotto JSON non valido anche dopo il tentativo di correzione. "
+                    f"Motivo: {retry_reason} Fine generazione: {ended}. "
+                    "Prova un modello piu capace oppure uno Swagger piu piccolo."
+                ) from exc
+        except LocalAIError:
+            raise
+        except (OSError, http.client.HTTPException, UnicodeDecodeError, json.JSONDecodeError) as exc:
+            raise LocalAIError(f"Unable to reach local Ollama or parse its response: {exc}") from exc
+        finally:
+            if connection is not None:
+                connection.close()
+    raise LocalAIError(f"Ollama local response invalid: {retry_reason}")

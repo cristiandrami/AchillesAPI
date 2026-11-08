@@ -23,6 +23,10 @@ def _finding(
     evidence: list[str],
     recommendation: str,
 ) -> AssessmentFinding:
+    """In pratica: Prepara un singolo rilievo passivo con dati e severità.
+
+    Attenzione: Non contatta direttamente l'API target.
+    """
     return AssessmentFinding(
         finding_id=f"{category}:{endpoint.method}:{endpoint.path}",
         title=title,
@@ -37,6 +41,8 @@ def _finding(
 
 def assess_api(parsed: ParsedAPI) -> list[AssessmentFinding]:
     """Generate hypotheses from OpenAPI metadata; no HTTP traffic is generated."""
+    # IN PRATICA: Cerca indizi di possibili problemi nella specifica, senza contattare l'API.
+    # SICUREZZA: Non contatta direttamente l'API target.
     findings: list[AssessmentFinding] = []
     for endpoint in parsed.endpoints:
         if endpoint.security_is_explicitly_disabled:
@@ -140,6 +146,10 @@ def assess_api(parsed: ParsedAPI) -> list[AssessmentFinding]:
 
 
 def assessment_to_dict(findings: list[AssessmentFinding]) -> dict[str, Any]:
+    """In pratica: Trasforma i risultati passivi in un dizionario pronto per il JSON.
+
+    Attenzione: Non contatta direttamente l'API target.
+    """
     return {
         "status": "passive_hypotheses",
         "confirmed_vulnerabilities": 0,

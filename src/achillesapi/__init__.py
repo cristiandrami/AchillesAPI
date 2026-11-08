@@ -1,1 +1,2 @@
-__version__ = "0.7.0"
+"""AchillesAPI package."""
+__version__ = "0.53.0"

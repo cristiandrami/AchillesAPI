@@ -1,0 +1,22 @@
+workflows:
+- name: guided_lifecycle
+  create:
+    operation: POST /projects
+    identity: owner
+    body:
+      label: temporary-resource
+    marker_field: label
+    id_pointer: /id
+  read:
+    operation: GET /projects/{project_ref}
+    identity: owner
+    id_parameter: project_ref
+    id_pointer: /id
+    marker_pointer: /label
+  cleanup:
+    operation: DELETE /projects/{project_ref}
+    identity: owner
+  access:
+  - identity: other
+    expected: deny
+    category: BOLA

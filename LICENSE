@@ -1,21 +1,37 @@
-MIT License
+# AchillesAPI v0.10.2 — Full Local Training Lab
 
-Copyright (c) 2026 AchillesAPI contributors
+Release date: 2026-11-07
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+## New in this release
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+- Full training API in `src/achillesapi/lab/full_app.py`, served only on loopback.
+- 18 OpenAPI operations with Bearer, Basic, API key and cookie authentication.
+- Deliberate BOLA, BFLA, BOPLA, mass assignment and simulated SQL error disclosure.
+- Paired protected routes for comparison and safe in-memory fake fixtures.
+- Input validation, nonstandard object identifiers and POST-to-GET workflow.
+- OpenAPI export utility: `python -m achillesapi.lab.export_spec`.
+- New local-only PowerShell startup and demo scripts.
+- Optional Ollama startup/model install; first model download requires Internet.
+- `auto-assess` now pairs profiles to declared OpenAPI security mechanisms.
+- New plain-language Italian laboratory walkthrough.
+- Dedicated tests for all lab security scenarios and OpenAPI consistency.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+## Restrictions and caveats
+
+- This lab is **deliberately insecure**. Bind only to `127.0.0.1`.
+- The SQL error is a simulation: this lab does not contain injectable SQL.
+- The core generic scanner still performs GET only, and will not automatically
+  execute POST/PATCH/DELETE.
+- The local model is not bundled. Install Ollama and download `llama3.2:3b`.
+- Credentialed traffic over HTTP requires explicit `--allow-insecure-http`
+  because the training API is served on local HTTP.
+- Windows PowerShell startup scripts are provided but have not been run on a
+  Windows host in this release validation.
+
+## Validation
+
+- `pytest`: 90 passed (as of final build).
+- Live local HTTP smoke test using real uvicorn and CLI `auto-assess`: 33 GET
+  requests sent, no demo tokens exposed in the JSON report.
+- Legacy BOLA and safe SQL canary probes exercised against the local training API.
+- Local Ollama inference was not tested (model not installed in this environment).

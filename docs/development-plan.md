@@ -43,3 +43,14 @@ Known limitations: BOLA/BFLA sweeps are triage tools, not automatic vulnerabilit
 ## v0.7.0 implementation status
 
 The v0.7.0 release adds a loopback-only, GET-only multi-profile `role-matrix` command. It compares response status and JSON property visibility across 2–10 authentication profiles. Evidence retains property paths and response metadata/fingerprints, not response values or credentials. Differences remain triage signals because the intended authorization policy must be supplied and reviewed by the assessor. Full workflow-aware BOLA/BFLA/BOPLA verification, policy-as-code, and safe stateful request generation remain future work.
+
+## v0.8.0 implementation status
+
+- Added `generate-tests` for deterministic offline test-plan generation.
+- Added parameter inventory and heuristic object-identifier candidates from OpenAPI path parameters.
+- Added candidate BOLA, BFLA, BOPLA, mass-assignment and parameter-constraint checks.
+- Added inferred POST collection-to-item GET workflows, explicitly marked as inferred.
+- Output includes prerequisites, evidence suggestions, risk labels and execution policy metadata.
+- Generation sends no HTTP requests, resolves no credentials and does not invoke Ollama.
+
+Known limitations: workflow inference currently uses conservative path-template matching; it does not infer arbitrary data dependencies, pagination, authentication refresh, or stateful setup/teardown. The generated plan is a review artifact, not an executable test runner or vulnerability verdict.

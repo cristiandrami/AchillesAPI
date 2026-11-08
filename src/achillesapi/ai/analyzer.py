@@ -15,6 +15,10 @@ def analyze_api_locally(
     model: str = "achilles-local",
     timeout: float = 120.0,
 ) -> dict[str, Any]:
+    """In pratica: Prepara l'analisi della specifica e la affida al modello locale.
+
+    Attenzione: Puo contattare Ollama sul computer locale, ma non l'API target.
+    """
     deterministic = [item.model_dump(mode="json") for item in assess_api(parsed)]
     ai = analyze_with_ollama(
         parsed, deterministic, endpoint=endpoint, model=model, timeout=timeout

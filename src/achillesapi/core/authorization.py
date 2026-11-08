@@ -19,7 +19,15 @@ from achillesapi.core.auth import AuthenticationMaterial
 
 
 def _render_path(base: str, path: str, values: dict[str, str]) -> str:
+    """In pratica: Sostituisce i segnaposto del percorso con i valori di test forniti.
+
+    Attenzione: Non contatta direttamente l'API target.
+    """
     def replace(match: re.Match[str]) -> str:
+        """In pratica: Esegue la fase 'replace' del modulo authorization.
+
+    Attenzione: Non contatta direttamente l'API target.
+    """
         key = match.group(1)
         if key not in values:
             raise AdvancedCheckError(f"Missing --path-value for {{{key}}}.")
@@ -28,6 +36,10 @@ def _render_path(base: str, path: str, values: dict[str, str]) -> str:
 
 
 def _field_paths(value: Any, prefix: str = "") -> set[str]:
+    """In pratica: Estrae i nomi dei campi di una risposta JSON per confrontarne la visibilità.
+
+    Attenzione: Non contatta direttamente l'API target.
+    """
     fields: set[str] = set()
     if isinstance(value, dict):
         for key, child in value.items():
@@ -43,6 +55,10 @@ def _field_paths(value: Any, prefix: str = "") -> set[str]:
 
 
 def _response_metadata(response: httpx.Response) -> dict[str, Any]:
+    """In pratica: Estrae dati delle risposte utili alla matrice senza dichiarare automaticamente vulnerabilità.
+
+    Attenzione: Non contatta direttamente l'API target.
+    """
     raw = response.content[:262144]
     try:
         parsed = response.json()
@@ -69,6 +85,8 @@ def authorization_matrix(
     timeout: float = 5.0,
 ) -> dict[str, Any]:
     """Compare GET response access and JSON property visibility across profiles."""
+    # IN PRATICA: Confronta le risposte ottenute con identità diverse nel motore legacy.
+    # SICUREZZA: Puo inviare richieste HTTP; verificare scope, identita e autorizzazioni.
     base = require_loopback(base_url)
     if len(profiles) < 2:
         raise AdvancedCheckError("At least two distinct authentication profiles are required.")

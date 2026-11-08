@@ -1,0 +1,26 @@
+{
+  "responses": [
+    {
+      "method": "GET",
+      "path": "/api/profile",
+      "url": "https://api.example.test/api/profile",
+      "status_code": 200,
+      "headers": {
+        "Content-Type": "text/html; charset=utf-8",
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Credentials": "true",
+        "Server": "example-server/1.2",
+        "X-Powered-By": "ExampleRuntime"
+      },
+      "body_preview": "<html><body>Example response</body></html>"
+    },
+    {
+      "method": "GET",
+      "path": "/api/report",
+      "url": "https://api.example.test/api/report",
+      "status_code": 500,
+      "headers": {"Content-Type": "application/json"},
+      "body_preview": "Internal Server Error"
+    }
+  ]
+}

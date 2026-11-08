@@ -1,0 +1,44 @@
+# ONLY for disposable resources on 127.0.0.1, not a production API.
+resources:
+  - name: collection
+    create: POST /collections
+    read: GET /collections/{collection_ref}
+    delete: DELETE /collections/{collection_ref}
+    identity: owner
+    body:
+      label: test-object
+    marker_field: label
+    marker_pointer: /label
+    id_pointer: /id
+    read_id_pointer: /id
+    path_values:
+      collection_ref: ${collection.id}
+    mutations:
+      - operation: PATCH /collections/{collection_ref}
+        body:
+          note: verified-state-transition
+    access:
+      - identity: other
+        expected: deny
+  - name: document
+    create: POST /collections/{collection_ref}/documents
+    read: GET /documents/{document_ref}
+    delete: DELETE /documents/{document_ref}
+    identity: owner
+    body:
+      label: disposable-document
+      parent: ${collection.id}
+    marker_field: label
+    marker_pointer: /label
+    id_pointer: /id
+    read_id_pointer: /id
+    path_values:
+      collection_ref: ${collection.id}
+      document_ref: ${document.id}
+    mutations:
+      - operation: PATCH /documents/{document_ref}
+        body:
+          note: child-state-verified
+    access:
+      - identity: other
+        expected: deny

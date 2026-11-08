@@ -1,0 +1,30 @@
+# ESEMPIO DI STRUTTURA, NON ESEGUIBILE CONTRO IL LABORATORIO INCLUSO.
+# Adatta le operazioni alla tua specifica OpenAPI. Questo comando NON invia HTTP.
+# Ogni POST create richiede un cleanup DELETE dichiarato.
+steps:
+  - id: create_customer
+    kind: create
+    operation: "POST /customers"
+    identity: tester
+    cleanup_step: delete_customer
+  - id: create_order
+    kind: create
+    operation: "POST /customers/{customerId}/orders"
+    identity: tester
+    depends_on: [create_customer]
+    cleanup_step: delete_order
+  - id: read_order
+    kind: read
+    operation: "GET /orders/{orderId}"
+    identity: tester
+    depends_on: [create_order]
+  - id: delete_order
+    kind: cleanup
+    operation: "DELETE /orders/{orderId}"
+    identity: tester
+    depends_on: [create_order, read_order]
+  - id: delete_customer
+    kind: cleanup
+    operation: "DELETE /customers/{customerId}"
+    identity: tester
+    depends_on: [create_customer, delete_order]

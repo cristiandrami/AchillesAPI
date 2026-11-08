@@ -43,6 +43,8 @@ def _basic_validate_spec(spec: dict[str, Any]) -> None:
     which is installed through the project dependencies. This fallback keeps
     the parser usable in offline/minimal development environments.
     """
+    # IN PRATICA: Controlla i campi minimi della specifica quando il validatore completo non è disponibile.
+    # SICUREZZA: Non contatta direttamente l'API target.
 
     version = spec.get("openapi")
     info = spec.get("info")
@@ -64,6 +66,8 @@ def _basic_validate_spec(spec: dict[str, Any]) -> None:
 
 def load_openapi(file_path: str | Path, *, validate: bool = True) -> dict[str, Any]:
     """Load an OpenAPI YAML/JSON file and optionally validate its structure."""
+    # IN PRATICA: Legge il file YAML/JSON e verifica che contenga una specifica OpenAPI valida.
+    # SICUREZZA: Non contatta direttamente l'API target.
 
     path = Path(file_path)
     if not path.is_file():
@@ -95,6 +99,8 @@ def load_openapi(file_path: str | Path, *, validate: bool = True) -> dict[str, A
 
 def _resolve_local_ref(document: dict[str, Any], value: Any) -> Any:
     """Resolve a local JSON Pointer $ref; leave ordinary objects unchanged."""
+    # IN PRATICA: Segue un riferimento locale dello Swagger senza scaricare risorse da Internet.
+    # SICUREZZA: Non contatta direttamente l'API target.
 
     if not isinstance(value, dict) or "$ref" not in value:
         return value
@@ -125,6 +131,8 @@ def _resolve_ref_chain(
     document: dict[str, Any], value: Any, *, max_depth: int = 20
 ) -> Any:
     """Resolve chained local references while protecting against cycles."""
+    # IN PRATICA: Segue più riferimenti collegati, fermandosi in caso di ciclo.
+    # SICUREZZA: Non contatta direttamente l'API target.
 
     seen: set[str] = set()
     current = value
@@ -145,6 +153,8 @@ def _merge_parameters(
     operation_parameters: Any,
 ) -> list[ParameterInfo]:
     """Merge path- and operation-level parameters, with operation overrides."""
+    # IN PRATICA: Unisce i parametri comuni del path con quelli specifici dell'operazione.
+    # SICUREZZA: Non contatta direttamente l'API target.
 
     merged: dict[tuple[str, str], ParameterInfo] = {}
     for raw_parameter in [*(path_parameters or []), *(operation_parameters or [])]:
@@ -169,6 +179,8 @@ def _normalize_security(
     raw_security: Any,
 ) -> tuple[list[SecurityRequirementInfo], bool]:
     """Normalize security requirements and preserve an explicit empty list."""
+    # IN PRATICA: Distingue autenticazione richiesta, assente o disattivata esplicitamente.
+    # SICUREZZA: Non contatta direttamente l'API target.
 
     if raw_security is None:
         return [], False
@@ -195,6 +207,8 @@ def _normalize_security(
 
 def parse_openapi(spec: dict[str, Any]) -> ParsedAPI:
     """Convert a validated OpenAPI 3.x dictionary into normalized metadata."""
+    # IN PRATICA: Trasforma lo Swagger in un elenco uniforme di endpoint, parametri e requisiti di autenticazione.
+    # SICUREZZA: Non contatta direttamente l'API target.
 
     openapi_version = spec.get("openapi")
     if not isinstance(openapi_version, str) or not openapi_version.startswith("3."):
@@ -290,5 +304,7 @@ def parse_openapi(spec: dict[str, Any]) -> ParsedAPI:
 
 def analyze_openapi_file(file_path: str | Path, *, validate: bool = True) -> ParsedAPI:
     """Convenience function: load, validate, and normalize a specification."""
+    # IN PRATICA: Unisce lettura, validazione e normalizzazione in un solo passaggio.
+    # SICUREZZA: Non contatta direttamente l'API target.
 
     return parse_openapi(load_openapi(file_path, validate=validate))

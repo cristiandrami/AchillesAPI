@@ -1,0 +1,9 @@
+# Names here are examples, NOT usernames hard-coded in AchillesAPI.
+# Actual credentials must be set as environment variables (never saved here).
+profiles:
+  - name: main_tester
+    type: bearer
+    token_env: ACHILLES_MAIN_TOKEN
+  - name: second_tester
+    type: bearer
+    token_env: ACHILLES_SECOND_TOKEN

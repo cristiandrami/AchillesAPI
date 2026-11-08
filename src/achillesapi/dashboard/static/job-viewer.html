@@ -1,0 +1,13 @@
+<!doctype html>
+<html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AchillesAPI · Esplora job</title><link rel="stylesheet" href="/assets/job-viewer.css"></head>
+<body>
+<header class="viewer-top"><div class="brand"><span class="mark">A</span><div><strong>ACHILLES<span>API</span></strong><small>Esploratore interattivo dei risultati · locale</small></div></div><div class="top-actions"><a href="/" target="_blank" rel="noopener">Apri workspace</a><button id="refresh">Aggiorna risultato</button></div></header>
+<main>
+<div id="notice" role="status" class="notice">Caricamento del risultato…</div>
+<section class="heading"><div><div class="kicker">RISULTATO DEL JOB</div><h1 id="jobTitle">Analisi</h1><p id="jobSubtitle">Il risultato viene consultato senza inviare nuove richieste all'API.</p></div><div class="exports"><a id="htmlExport" target="_blank" rel="noopener">Report HTML</a><a id="pdfExport" target="_blank" rel="noopener">Report PDF</a><a id="jsonExport" target="_blank" rel="noopener">Scarica JSON</a><a id="rawExport" target="_blank" rel="noopener">Output originale</a></div></section>
+<section id="metrics" class="metrics" aria-label="Statistiche risultato"></section>
+<nav id="tabs" class="tabs" aria-label="Sezioni risultato"></nav>
+<section id="panel" class="panel" aria-live="polite"></section>
+<footer>La consultazione non invia richieste al target · Il retry richiede un avvio esplicito e le autorizzazioni · Le ipotesi AI non confermano vulnerabilità.</footer>
+</main><script src="/assets/prerequisite-builder.js" defer></script><script src="/assets/job-viewer.js" defer></script></body></html>

@@ -1,0 +1,90 @@
+openapi: 3.0.3
+info:
+  title: AchillesAPI Test Generation Lab
+  version: 1.0.0
+  description: Synthetic contract for offline test-plan generation. No live service is required.
+servers:
+  - url: http://127.0.0.1:8000
+security:
+  - bearerAuth: []
+paths:
+  /projects:
+    post:
+      operationId: createProject
+      summary: Create a project
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProjectInput'
+      responses:
+        '201':
+          description: Created
+  /projects/{projectId}:
+    parameters:
+      - name: projectId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      operationId: getProject
+      summary: Read a project
+      responses:
+        '200':
+          description: Project details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Project'
+    patch:
+      operationId: updateProject
+      summary: Update a project
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProjectInput'
+      responses:
+        '200':
+          description: Updated
+  /admin/audit-log:
+    get:
+      operationId: getAuditLog
+      summary: Read administrative audit log
+      responses:
+        '200':
+          description: Audit log
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+  schemas:
+    ProjectInput:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        isAdmin:
+          type: boolean
+          readOnly: true
+        apiToken:
+          type: string
+    Project:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        refreshToken:
+          type: string
+          writeOnly: true

@@ -1,0 +1,18 @@
+# BOZZA NON APPROVATA: verifica payload, marker, ID, ownership e cleanup.
+resources:
+- name: resource
+  create: POST /projects
+  read: GET /projects/{project_ref}
+  delete: DELETE /projects/{project_ref}
+  identity: admin
+  body:
+    label: temporary-resource
+  marker_field: label
+  marker_pointer: /label
+  id_pointer: /REVIEW_ID_FIELD
+  read_id_pointer: /REVIEW_ID_FIELD
+  path_values:
+    project_ref: ${resource.id}
+  access:
+  - identity: other
+    expected: deny

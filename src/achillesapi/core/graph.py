@@ -18,15 +18,25 @@ _HTTP_SUCCESS = {"200", "201", "202", "203", "204", "206", "2XX"}
 
 
 def _endpoint_id(endpoint: EndpointInfo) -> str:
+    """In pratica: Crea un identificatore stabile per ogni coppia metodo e percorso.
+
+    Attenzione: Non contatta direttamente l'API target.
+    """
     return f"endpoint:{endpoint.method}:{endpoint.path}"
 
 
 def _decode_pointer_token(token: str) -> str:
+    """In pratica: Decodifica un pezzo di percorso usato nei riferimenti JSON Pointer.
+
+    Attenzione: Non contatta direttamente l'API target.
+    """
     return token.replace("~1", "/").replace("~0", "~")
 
 
 def _resolve_schema(spec: dict[str, Any], schema: Any, depth: int = 0) -> Any:
     """Resolve local schema refs for inspection only; never fetch remote refs."""
+    # IN PRATICA: Trova lo schema effettivo quando compare un riferimento a un componente.
+    # SICUREZZA: Non contatta direttamente l'API target.
     if depth > 20 or not isinstance(schema, dict):
         return schema
     ref = schema.get("$ref")
@@ -49,6 +59,10 @@ def _resolve_schema(spec: dict[str, Any], schema: Any, depth: int = 0) -> Any:
 def _walk_properties(
     spec: dict[str, Any], schema: Any, prefix: str = "", depth: int = 0
 ) -> list[tuple[str, dict[str, Any]]]:
+    """In pratica: Visita ricorsivamente i campi di uno schema, con limiti per evitare loop.
+
+    Attenzione: Non contatta direttamente l'API target.
+    """
     if depth > 12 or not isinstance(schema, dict):
         return []
     resolved = _resolve_schema(spec, schema)
@@ -74,6 +88,8 @@ def _walk_properties(
 
 def _content_schemas(spec: dict[str, Any], value: Any) -> list[dict[str, Any]]:
     """Extract JSON-like schemas from requestBody or response objects."""
+    # IN PRATICA: Seleziona gli schemi JSON tra i media type di request e response.
+    # SICUREZZA: Non contatta direttamente l'API target.
     if not isinstance(value, dict):
         return []
     value = _resolve_schema(spec, value)
@@ -90,6 +106,8 @@ def _content_schemas(spec: dict[str, Any], value: Any) -> list[dict[str, Any]]:
 
 def _resource_for_path(path: str) -> list[str]:
     """Return collection/sub-collection templates inferred from path segments."""
+    # IN PRATICA: Stima la risorsa rappresentata dal percorso, senza affermare che sia certa.
+    # SICUREZZA: Non contatta direttamente l'API target.
     segments = [segment for segment in path.strip("/").split("/") if segment]
     resources: list[str] = []
     normalized: list[str] = []
@@ -105,6 +123,8 @@ def _resource_for_path(path: str) -> list[str]:
 
 def build_api_graph(parsed: ParsedAPI, spec: dict[str, Any]) -> nx.MultiDiGraph:
     """Create a directed multigraph of endpoints, resources, schemas and auth."""
+    # IN PRATICA: Collega endpoint, risorse e schemi in un grafo per identificare possibili relazioni.
+    # SICUREZZA: Non contatta direttamente l'API target.
     graph = nx.MultiDiGraph(name="AchillesAPI relationship graph", version="1")
     components = spec.get("components", {})
     schemas = components.get("schemas", {}) if isinstance(components, dict) else {}
@@ -271,6 +291,8 @@ def build_api_graph(parsed: ParsedAPI, spec: dict[str, Any]) -> nx.MultiDiGraph:
 
 def graph_to_dict(graph: nx.MultiDiGraph) -> dict[str, Any]:
     """Serialize the graph in a stable, human-readable JSON structure."""
+    # IN PRATICA: Converte il grafo in dati JSON serializzabili.
+    # SICUREZZA: Non contatta direttamente l'API target.
     nodes = [
         {"id": node_id, **dict(sorted(attrs.items()))}
         for node_id, attrs in sorted(graph.nodes(data=True), key=lambda item: item[0])

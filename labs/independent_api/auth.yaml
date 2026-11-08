@@ -1,0 +1,10 @@
+profiles:
+  - name: alice
+    type: bearer
+    token_env: ACHILLES_DEMO_ALICE
+  - name: bob
+    type: bearer
+    token_env: ACHILLES_DEMO_BOB
+  - name: admin
+    type: bearer
+    token_env: ACHILLES_DEMO_ADMIN

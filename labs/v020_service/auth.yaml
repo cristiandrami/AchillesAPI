@@ -1,0 +1,14 @@
+# Secrets are environment variables, never stored in this file.
+profiles:
+  - name: workload
+    type: oauth2_client_credentials
+    token_url: http://127.0.0.1:8780/oauth/token
+    client_id_env: ACHILLES_V020_CLIENT_ID
+    client_secret_env: ACHILLES_V020_CLIENT_SECRET
+    scopes: [read:organizations]
+  - name: user
+    type: login_json
+    login_url: http://127.0.0.1:8780/session
+    username_env: ACHILLES_V020_USER
+    password_env: ACHILLES_V020_PASSWORD
+    token_pointer: /session/access_token

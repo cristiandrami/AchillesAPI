@@ -1,0 +1,7 @@
+profiles:
+  - name: owner
+    type: bearer
+    token_env: APPROVED_OWNER_TOKEN
+  - name: other
+    type: bearer
+    token_env: APPROVED_OTHER_TOKEN

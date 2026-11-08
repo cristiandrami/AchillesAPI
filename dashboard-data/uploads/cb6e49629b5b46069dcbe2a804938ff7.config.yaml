@@ -1,0 +1,7 @@
+steps:
+- operation: GET /health
+  values: {}
+- operation: GET /projects
+  values: {}
+- operation: GET /health
+  values: {}

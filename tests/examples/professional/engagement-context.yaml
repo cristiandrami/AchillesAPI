@@ -1,0 +1,13 @@
+# Fill only when Swagger cannot supply safe values for dynamic parameters.
+# Use NON-PRODUCTION test objects. This file does not store credentials.
+path_values:
+  account_ref: TEST-ACCOUNT-001
+  page_size: 10
+
+# Optional. The tool can only assess ownership/roles against factual
+# expectations you supply; it cannot derive who owns objects from Swagger.
+# Match method + the literal OpenAPI path template exactly.
+expected_access:
+  "GET /v1/accounts/{account_ref}":
+    main_tester: allow
+    second_tester: deny

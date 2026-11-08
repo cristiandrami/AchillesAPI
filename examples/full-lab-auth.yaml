@@ -1,0 +1,28 @@
+# Synthetic credentials. Values are read from PowerShell environment variables.
+# Configure these variables using deployment/windows/run-lab-demo.ps1.
+profiles:
+  - name: alice
+    role: user
+    type: bearer
+    token_env: ACHILLES_LAB_ALICE_TOKEN
+  - name: bob
+    role: user
+    type: bearer
+    token_env: ACHILLES_LAB_BOB_TOKEN
+  - name: admin
+    role: admin
+    type: bearer
+    token_env: ACHILLES_LAB_ADMIN_TOKEN
+  - name: basic-demo
+    type: basic
+    username_env: ACHILLES_LAB_BASIC_USER
+    password_env: ACHILLES_LAB_BASIC_PASS
+  - name: api-key-demo
+    type: api_key
+    location: header
+    parameter_name: X-API-Key
+    value_env: ACHILLES_LAB_API_KEY
+  - name: cookie-demo
+    type: cookie
+    parameter_name: sessionid
+    value_env: ACHILLES_LAB_SESSION

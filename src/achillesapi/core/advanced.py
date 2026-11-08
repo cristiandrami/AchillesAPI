@@ -21,6 +21,10 @@ class AdvancedCheckError(ValueError):
 
 
 def require_loopback(base_url: str) -> str:
+    """In pratica: Blocca target non locali per proteggere i vecchi test da uso indesiderato.
+
+    Attenzione: Non contatta direttamente l'API target.
+    """
     from ipaddress import ip_address
 
     parts = urlsplit(base_url)
@@ -39,13 +43,25 @@ def require_loopback(base_url: str) -> str:
 
 
 def _client(timeout: float) -> httpx.Client:
+    """In pratica: Prepara un client HTTP con timeout e senza redirect automatici.
+
+    Attenzione: Non contatta direttamente l'API target.
+    """
     return httpx.Client(timeout=timeout, follow_redirects=False, verify=True,
                         headers={"User-Agent": "AchillesAPI/0.4.0 (authorized-local-assessment)"})
 
 
 def _url(base: str, path: str, values: dict[str, str] | None = None) -> str:
+    """In pratica: Costruisce l'URL da base e path, sostituendo i parametri indicati.
+
+    Attenzione: Non contatta direttamente l'API target.
+    """
     values = values or {}
     def replace(match: re.Match[str]) -> str:
+        """In pratica: Esegue la fase 'replace' del modulo advanced.
+
+    Attenzione: Non contatta direttamente l'API target.
+    """
         name = match.group(1)
         if name not in values:
             raise AdvancedCheckError(f"Missing --path-value for {{{name}}}.")
@@ -56,6 +72,8 @@ def _url(base: str, path: str, values: dict[str, str] | None = None) -> str:
 def bola_sweep(spec: dict[str, Any], base_url: str, owner_token: str,
                other_token: str, path_values: dict[str, str], timeout: float = 5.0) -> dict[str, Any]:
     """Compare two principals across every GET operation; report candidates only."""
+    # IN PRATICA: Confronta l'accesso alla stessa risorsa da parte di due identità nel motore legacy.
+    # SICUREZZA: Puo inviare richieste HTTP; verificare scope, identita e autorizzazioni.
     base = require_loopback(base_url)
     if not owner_token or not other_token or owner_token == other_token:
         raise AdvancedCheckError("Two distinct non-empty bearer tokens are required.")
@@ -93,6 +111,8 @@ def bola_sweep(spec: dict[str, Any], base_url: str, owner_token: str,
 def bfla_sweep(spec: dict[str, Any], base_url: str, low_token: str,
                high_token: str, path_values: dict[str, str], timeout: float = 5.0) -> dict[str, Any]:
     """Compare low/high privilege responses on GET endpoints; never infer policy."""
+    # IN PRATICA: Confronta l'accesso a una funzione da parte di identità diverse nel motore legacy.
+    # SICUREZZA: Puo inviare richieste HTTP; verificare scope, identita e autorizzazioni.
     base = require_loopback(base_url)
     if not low_token or not high_token or low_token == high_token:
         raise AdvancedCheckError("Two distinct role tokens are required.")
@@ -125,6 +145,8 @@ def bfla_sweep(spec: dict[str, Any], base_url: str, low_token: str,
 def sqli_probe(url: str, parameter: str, token: str | None = None,
                timeout: float = 5.0) -> dict[str, Any]:
     """Send a single quote-only canary; no timing, stacked, or destructive payloads."""
+    # IN PRATICA: Invia un controllo leggero per cercare segnali di errori SQL, senza confermare SQL injection.
+    # SICUREZZA: Puo inviare richieste HTTP; verificare scope, identita e autorizzazioni.
     require_loopback(url)
     headers = {"Authorization": f"Bearer {token}"} if token else {}
     markers = ("sql syntax", "sqlite error", "mysql", "postgresql", "odbc", "sqlstate", "ora-")
@@ -147,6 +169,8 @@ def sqli_probe(url: str, parameter: str, token: str | None = None,
 def fuzz_query_parameter(url: str, parameter: str, token: str | None = None,
                          timeout: float = 5.0) -> dict[str, Any]:
     """Low-volume GET parameter robustness checks using benign boundary values."""
+    # IN PRATICA: Prova alcuni valori non distruttivi per verificare la gestione dei parametri GET.
+    # SICUREZZA: Puo inviare richieste HTTP; verificare scope, identita e autorizzazioni.
     require_loopback(url)
     values = ["", "a", "0", "-1", "999999999", "null", "true", " ", "A" * 128]
     headers = {"Authorization": f"Bearer {token}"} if token else {}
@@ -169,6 +193,8 @@ def fuzz_query_parameter(url: str, parameter: str, token: str | None = None,
 def mass_assignment_check(url: str, body: dict[str, Any], token: str | None = None,
                           execute: bool = False, timeout: float = 5.0) -> dict[str, Any]:
     """Explicit local-only PATCH probe using only a caller-supplied JSON body."""
+    # IN PRATICA: Prepara o invia una PATCH esplicita: la modifica dei dati richiede autorizzazione.
+    # SICUREZZA: Puo inviare richieste HTTP; verificare scope, identita e autorizzazioni.
     require_loopback(url)
     if not isinstance(body, dict) or not body:
         raise AdvancedCheckError("Provide a non-empty JSON object with --body-file.")
@@ -192,10 +218,16 @@ def mass_assignment_check(url: str, body: dict[str, Any], token: str | None = No
 
 def inspect_jwt(token: str) -> dict[str, Any]:
     """Decode JWT header/payload offline. Signature and claims are NOT verified."""
+    # IN PRATICA: Legge i campi di un JWT senza verificarne firma o autenticità.
+    # SICUREZZA: Non contatta direttamente l'API target.
     parts = token.split(".")
     if len(parts) != 3:
         raise AdvancedCheckError("Input is not a compact three-part JWT.")
     def decode(segment: str) -> dict[str, Any]:
+        """In pratica: Decodifica una parte del JWT e verifica che sia un oggetto JSON.
+
+    Attenzione: Non contatta direttamente l'API target.
+    """
         padded = segment + "=" * (-len(segment) % 4)
         try:
             value = json.loads(base64.urlsafe_b64decode(padded.encode()).decode())

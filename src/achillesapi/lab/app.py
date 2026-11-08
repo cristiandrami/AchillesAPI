@@ -31,6 +31,10 @@ _ORDERS = {
 def current_user(
     credentials: HTTPAuthorizationCredentials | None = Depends(_bearer),
 ) -> str:
+    """In pratica: Esegue la fase 'current user' del modulo app.
+
+    Attenzione: Non contatta direttamente l'API target.
+    """
     if credentials is None:
         raise HTTPException(status_code=401, detail="Bearer token required")
     username = _TOKENS.get(credentials.credentials)
@@ -41,6 +45,10 @@ def current_user(
 
 @app.get("/health", tags=["health"])
 def health() -> dict[str, str]:
+    """In pratica: Esegue la fase 'health' del modulo app.
+
+    Attenzione: Non contatta direttamente l'API target.
+    """
     return {"status": "ok", "service": "AchillesAPI Local BOLA Lab"}
 
 
@@ -49,6 +57,8 @@ def get_order_vulnerable(
     order_id: str, username: str = Depends(current_user)
 ) -> dict[str, str]:
     """Intentionally vulnerable: authenticates the caller but never checks ownership."""
+    # IN PRATICA: Esegue la fase 'get order vulnerable' del modulo app.
+    # SICUREZZA: Non contatta direttamente l'API target.
     del username
     order = _ORDERS.get(order_id)
     if order is None:
@@ -61,6 +71,8 @@ def get_order_secure(
     order_id: str, username: str = Depends(current_user)
 ) -> dict[str, str]:
     """Control endpoint: only the owner can read the order."""
+    # IN PRATICA: Esegue la fase 'get order secure' del modulo app.
+    # SICUREZZA: Non contatta direttamente l'API target.
     order = _ORDERS.get(order_id)
     if order is None:
         raise HTTPException(status_code=404, detail="Order not found")
@@ -72,6 +84,8 @@ def get_order_secure(
 @app.get("/api/admin/metrics", tags=["authorization", "admin"])
 def admin_metrics(username: str = Depends(current_user)) -> dict[str, str]:
     """Role-protected endpoint for BFLA training."""
+    # IN PRATICA: Esegue la fase 'admin metrics' del modulo app.
+    # SICUREZZA: Non contatta direttamente l'API target.
     if _ROLES.get(username) != "admin":
         raise HTTPException(status_code=403, detail="Admin role required")
     return {"service": "local-lab", "metric": "training-only"}
@@ -82,6 +96,8 @@ def update_profile_vulnerable(
     username: str, payload: dict, caller: str = Depends(current_user)
 ) -> dict:
     """Intentionally vulnerable: mass-assigns every caller-supplied field."""
+    # IN PRATICA: Esegue la fase 'update profile vulnerable' del modulo app.
+    # SICUREZZA: Non contatta direttamente l'API target.
     if caller != username:
         raise HTTPException(status_code=403, detail="Own profile only")
     profile = _PROFILES.setdefault(username, {"username": username, "displayName": username, "is_admin": False})
@@ -94,6 +110,8 @@ def update_profile_secure(
     username: str, payload: dict, caller: str = Depends(current_user)
 ) -> dict:
     """Control endpoint: only the explicitly allowed displayName is mutable."""
+    # IN PRATICA: Esegue la fase 'update profile secure' del modulo app.
+    # SICUREZZA: Non contatta direttamente l'API target.
     if caller != username:
         raise HTTPException(status_code=403, detail="Own profile only")
     profile = _PROFILES.setdefault(username, {"username": username, "displayName": username, "is_admin": False})
@@ -107,5 +125,7 @@ def update_profile_secure(
 @app.get("/api/search", tags=["input-validation"])
 def search(q: str = Query(default="", max_length=256), username: str = Depends(current_user)) -> dict[str, str]:
     """Harmless search endpoint for parameter fuzzing and safe SQLi canaries."""
+    # IN PRATICA: Esegue la fase 'search' del modulo app.
+    # SICUREZZA: Non contatta direttamente l'API target.
     del username
     return {"query": q, "result": "no matching records"}

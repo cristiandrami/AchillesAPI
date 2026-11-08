@@ -1,0 +1,13 @@
+steps:
+  - operation: GET /api/organizations
+    identity: workload
+    capture:
+      organization_id: /organizations/0/organization_ref
+  - operation: GET /api/organizations/{organization_ref}
+    identity: user
+    values:
+      organization_ref: $organization_id
+  - operation: GET /api/organizations/{organization_ref}/settings
+    identity: workload
+    values:
+      organization_ref: $organization_id

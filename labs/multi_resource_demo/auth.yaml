@@ -1,0 +1,7 @@
+profiles:
+  - name: owner
+    type: bearer
+    token_env: ACHILLES_DEMO_OWNER
+  - name: other
+    type: bearer
+    token_env: ACHILLES_DEMO_OTHER

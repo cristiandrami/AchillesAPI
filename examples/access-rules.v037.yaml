@@ -1,0 +1,8 @@
+# Esempio soltanto: sostituisci operazioni/identità con policy reali.
+rules:
+  - operation: GET /customers/{customerId}
+    identity: guest
+    expected: deny
+  - operation: GET /public/catalog
+    identity: tester
+    expected: allow

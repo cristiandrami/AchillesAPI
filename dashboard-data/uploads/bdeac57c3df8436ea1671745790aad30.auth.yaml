@@ -1,0 +1,10 @@
+profiles:
+  - name: owner
+    type: bearer
+    token_env: ACHILLES_LAB_OWNER
+  - name: other
+    type: bearer
+    token_env: ACHILLES_LAB_OTHER
+  - name: admin
+    type: bearer
+    token_env: ACHILLES_LAB_ADMIN

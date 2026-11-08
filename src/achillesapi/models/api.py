@@ -55,10 +55,18 @@ class EndpointInfo(BaseModel):
 
     @property
     def path_parameters(self) -> list[ParameterInfo]:
+        """In pratica: Restituisce i parametri che compaiono nel percorso dell'endpoint.
+
+    Attenzione: Questa funzione non contatta direttamente l'API target.
+    """
         return [parameter for parameter in self.parameters if parameter.location == "path"]
 
     @property
     def query_parameters(self) -> list[ParameterInfo]:
+        """In pratica: Restituisce i parametri destinati alla query string.
+
+    Attenzione: Questa funzione non contatta direttamente l'API target.
+    """
         return [parameter for parameter in self.parameters if parameter.location == "query"]
 
 
@@ -75,4 +83,8 @@ class ParsedAPI(BaseModel):
 
     @property
     def endpoint_count(self) -> int:
+        """In pratica: Conta le operazioni HTTP rilevate nella specifica.
+
+    Attenzione: Questa funzione non contatta direttamente l'API target.
+    """
         return len(self.endpoints)

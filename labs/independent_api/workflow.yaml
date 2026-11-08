@@ -1,0 +1,32 @@
+workflows:
+  - name: disposable_inventory
+    create:
+      operation: 'POST /v2/inventory'
+      identity: alice
+      body:
+        label: 'achilles-temporary'
+        owner: alice
+      id_pointer: /id
+      marker_field: label
+    read:
+      operation: 'GET /v2/inventory/{asset_ref}'
+      identity: alice
+      id_parameter: asset_ref
+      id_pointer: /id
+      marker_pointer: /label
+    access:
+      - identity: bob
+        expected: deny
+        category: BOLA
+    restricted_response_fields:
+      - internal_note
+    mutation:
+      operation: 'PATCH /v2/inventory/{asset_ref}'
+      identity: alice
+      body:
+        is_approved: true
+      restricted_fields:
+        - is_approved
+    cleanup:
+      operation: 'DELETE /v2/inventory/{asset_ref}'
+      identity: alice
