@@ -1,0 +1,9 @@
+# Replace placeholders with test credentials; never commit actual tokens.
+# The JOSE public keys must be real and trusted for your test environment.
+profiles:
+  - name: owner
+    type: bearer
+    token_env: ACHILLES_TEST_OWNER_JWT
+    oidc_issuer: https://idp.example.org
+    oidc_audience: achilles-api-test
+    oidc_jwks_file: rc18-jwks-public.example.json

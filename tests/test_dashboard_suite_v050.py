@@ -59,4 +59,6 @@ def test_suite_skip_matrix():
     assert control.suite_skip_reason('workflow-assess',cfg,r,None)
     assert control.suite_skip_reason('scope-audit',cfg,r,None)
     assert control.suite_skip_reason('auto-assess',cfg,r,None) is None
-    assert set(control.SUITE_ORDER)==set(control.TOOLS)
+    # RC13 is intentionally an optional suite stage, counted separately.
+    assert set(control.SUITE_ORDER)==set(control.TOOLS)-{'rc13-assess','rc15-scan'}
+    assert 'rc13-assess' in control.TOOLS

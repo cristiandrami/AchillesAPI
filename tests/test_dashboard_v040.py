@@ -18,7 +18,11 @@ def test_gui_has_a_single_guided_workflow(tmp_path):
     for name in ['specFile','authFile','configFile','secretFields','toolSelect','jobsList']:
         assert 'id="'+name+'"' in html
     assert 'Avvia tutto il laboratorio' not in html
-    assert 'Dashboard indipendente dal laboratorio' in html
+    # RC19 keeps the general assessment and makes each security task independent.
+    assert 'Analizza le tue API' in html
+    for section in ('workflowCreateSection', 'workflowManageSection',
+                    'massAssignmentPanel', 'bflaPanel', 'loginConfigPanel'):
+        assert f'id="{section}"' in html
     js=test.get('/assets/app.js').text
     assert 'specPasteBtn' in js and 'import-text' in js
 

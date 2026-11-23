@@ -1,7 +1,6 @@
 """Scoped dynamic authentication for authorized API assessments.
 
-Supports OAuth2 client credentials and JSON login forms. Secrets are read only
-from environment variables. Token responses never leave process memory. An
+Supports OAuth2 client credentials and JSON login forms. Secrets can be read from inline YAML or environment variables. Token responses never leave process memory. An
 explicit host allowlist is required before any authentication network request.
 """
 from __future__ import annotations
@@ -18,8 +17,10 @@ from achillesapi.core.auth import AuthenticationConfigError, AuthenticationMater
 _ENV = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
 
-def _secret(name: str | None) -> str:
+def _secret(name: str | None, inline: str | None = None) -> str:
     """Read one configured environment variable without exposing its value."""
+    if inline is not None:
+        return inline
     if not name or not _ENV.fullmatch(name):
         raise AuthenticationConfigError("Invalid or missing credential environment variable name")
     value = os.getenv(name)
@@ -56,34 +57,77 @@ def _pointer(data: object, pointer: str) -> object:
     return item
 
 
-def acquire(profile, *, allowed_hosts: set[str], allow_insecure_http: bool = False,
-            timeout: float = 8.0) -> tuple[AuthenticationMaterial, float]:
+def acquire_with_refresh(profile, *, allowed_hosts: set[str], allow_insecure_http: bool = False,
+                         timeout: float = 8.0, refresh_override: str | None = None,
+                         prefer_refresh: bool = False
+                         ) -> tuple[AuthenticationMaterial, float, str | None]:
     """Fetch a scoped token using a single POST, returning material and expiry.
 
     An OAuth2 client-credentials grant sends a standard urlencoded form. A
     login_json profile sends only explicitly named username/password fields.
     The API target's response body and the issued token are never persisted.
     """
-    url = profile.token_url if profile.type == "oauth2_client_credentials" else profile.login_url
+    url = profile.login_url if profile.type == "login_json" else profile.token_url
     _validate_auth_url(url, allowed_hosts, allow_insecure_http)
     if profile.type == "oauth2_client_credentials":
         form = {"grant_type": "client_credentials"}
         if profile.scopes:
             form["scope"] = " ".join(profile.scopes)
-        auth = (_secret(profile.client_id_env), _secret(profile.client_secret_env))
+        auth = (_secret(profile.client_id_env, profile.client_id), _secret(profile.client_secret_env, profile.client_secret))
+        body = None
+    elif profile.type == "oauth2_refresh_token":
+        form = {"grant_type": "refresh_token", "refresh_token": refresh_override or
+                _secret(profile.refresh_token_env, profile.refresh_token),
+                "client_id": _secret(profile.client_id_env, profile.client_id)}
+        if profile.client_secret_env or profile.client_secret:
+            form['client_secret'] = _secret(profile.client_secret_env, profile.client_secret)
+        auth = None
+        body = None
+    elif profile.type == "oauth2_authorization_code":
+        if prefer_refresh:
+            if not refresh_override:
+                raise AuthenticationConfigError('Refresh token non disponibile: richiedi nuovo PKCE code')
+            form = {"grant_type": "refresh_token", "refresh_token": refresh_override,
+                    "client_id": _secret(profile.client_id_env, profile.client_id)}
+            if profile.client_secret_env or profile.client_secret:
+                form['client_secret'] = _secret(profile.client_secret_env, profile.client_secret)
+            auth = None
+            body = None
+        else:
+            form = {"grant_type": "authorization_code",
+                "code": _secret(profile.authorization_code_env),
+                "code_verifier": _secret(profile.code_verifier_env),
+                "client_id": _secret(profile.client_id_env, profile.client_id),
+                "redirect_uri": profile.redirect_uri}
+        if profile.client_secret_env or profile.client_secret:
+            form['client_secret'] = _secret(profile.client_secret_env, profile.client_secret)
+        auth = None
         body = None
     elif profile.type == "login_json":
         auth = None
         form = None
-        body = {profile.username_field: _secret(profile.username_env),
-                profile.password_field: _secret(profile.password_env)}
+        body = {profile.username_field: _secret(profile.username_env, profile.username),
+                profile.password_field: _secret(profile.password_env, profile.password)}
     else:
         raise AuthenticationConfigError("Unsupported dynamic authentication type")
+    # Anche i token OAuth consumano traffico: contiamo la POST nel budget globale.
+    from achillesapi.core.campaign_ledger import CampaignLedger, CampaignBudgetError
+    ledger = CampaignLedger.from_environment()
+    ticket = None
+    if ledger is not None:
+        try:
+            ticket = ledger.reserve()
+        except CampaignBudgetError as exc:
+            raise AuthenticationConfigError('Budget HTTP globale esaurito durante autenticazione') from exc
+        if ticket.delay_seconds:
+            time.sleep(ticket.delay_seconds)
+    request_status = None
     try:
         with httpx.Client(timeout=timeout, follow_redirects=False, trust_env=False,
                           verify=True) as client:
             response = client.post(url, data=form, json=body, auth=auth,
                                    headers={"Accept": "application/json"})
+            request_status = response.status_code
             if response.status_code != 200:
                 raise AuthenticationConfigError("Authentication failed (HTTP status not 200)")
             if len(response.content) > 16384:
@@ -91,6 +135,9 @@ def acquire(profile, *, allowed_hosts: set[str], allow_insecure_http: bool = Fal
             payload = response.json()
     except (httpx.HTTPError, ValueError) as exc:
         raise AuthenticationConfigError("Authentication request failed or returned invalid JSON") from exc
+    finally:
+        if ticket is not None:
+            ledger.finish(ticket, status=request_status)
     if not isinstance(payload, dict):
         raise AuthenticationConfigError("Authentication response must be a JSON object")
     token = _pointer(payload, profile.token_pointer)
@@ -99,4 +146,15 @@ def acquire(profile, *, allowed_hosts: set[str], allow_insecure_http: bool = Fal
     expires = payload.get("expires_in", 300)
     duration = float(expires) if isinstance(expires, (int, float)) else 300.0
     duration = min(max(duration - 30, 10), 86400)
-    return AuthenticationMaterial(headers={"Authorization": "Bearer " + token}), time.monotonic() + duration
+    rotated = payload.get('refresh_token')
+    if not isinstance(rotated, str) or not rotated or len(rotated) > 8192:
+        rotated = None
+    return AuthenticationMaterial(headers={"Authorization": "Bearer " + token}), time.monotonic() + duration, rotated
+
+
+def acquire(profile, *, allowed_hosts: set[str], allow_insecure_http: bool = False,
+            timeout: float = 8.0) -> tuple[AuthenticationMaterial, float]:
+    """Backwards-compatible two-field interface for existing callers."""
+    material, expiry, _ = acquire_with_refresh(profile, allowed_hosts=allowed_hosts,
+                                               allow_insecure_http=allow_insecure_http, timeout=timeout)
+    return material, expiry

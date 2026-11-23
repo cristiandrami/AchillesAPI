@@ -1,0 +1,169 @@
+{
+  "rules": [
+    {
+      "id": "TICKET-ACME-COLLEAGUE-DENY",
+      "operation": "GET /api/v1/tickets/{ticket_id}",
+      "path_values": {
+        "ticket_id": "t100"
+      },
+      "owner": "owner",
+      "other": "colleague",
+      "expected_other": "deny",
+      "expected_owner": "allow"
+    },
+    {
+      "id": "TICKET-ACME-GLOBEX-DENY",
+      "operation": "GET /api/v1/tickets/{ticket_id}",
+      "path_values": {
+        "ticket_id": "t100"
+      },
+      "owner": "owner",
+      "other": "other",
+      "expected_other": "deny",
+      "expected_owner": "allow"
+    },
+    {
+      "id": "TICKET-GLOBEX-ACME-DENY",
+      "operation": "GET /api/v1/tickets/{ticket_id}",
+      "path_values": {
+        "ticket_id": "t200"
+      },
+      "owner": "other",
+      "other": "owner",
+      "expected_other": "deny",
+      "expected_owner": "allow"
+    },
+    {
+      "id": "EXPENSE-ACME-COLLEAGUE-DENY",
+      "operation": "GET /api/v1/tenants/{tenant}/expenses/{expense_id}",
+      "path_values": {
+        "tenant": "acme",
+        "expense_id": "e100"
+      },
+      "owner": "owner",
+      "other": "colleague",
+      "expected_other": "deny",
+      "expected_owner": "allow"
+    },
+    {
+      "id": "EXPENSE-ACME-MANAGER-ALLOW",
+      "operation": "GET /api/v1/tenants/{tenant}/expenses/{expense_id}",
+      "path_values": {
+        "tenant": "acme",
+        "expense_id": "e100"
+      },
+      "owner": "owner",
+      "other": "manager",
+      "expected_other": "allow",
+      "expected_owner": "allow"
+    },
+    {
+      "id": "EXPENSE-ACME-GLOBEX-DENY",
+      "operation": "GET /api/v1/tenants/{tenant}/expenses/{expense_id}",
+      "path_values": {
+        "tenant": "acme",
+        "expense_id": "e100"
+      },
+      "owner": "owner",
+      "other": "other",
+      "expected_other": "deny",
+      "expected_owner": "allow"
+    },
+    {
+      "id": "ORDER-ACME-COLLEAGUE-ALLOW",
+      "operation": "GET /api/v1/tenants/{tenant}/purchase-orders/{order_id}",
+      "path_values": {
+        "tenant": "acme",
+        "order_id": "po100"
+      },
+      "owner": "owner",
+      "other": "colleague",
+      "expected_other": "allow",
+      "expected_owner": "allow"
+    },
+    {
+      "id": "ORDER-ACME-GLOBEX-DENY",
+      "operation": "GET /api/v1/tenants/{tenant}/purchase-orders/{order_id}",
+      "path_values": {
+        "tenant": "acme",
+        "order_id": "po100"
+      },
+      "owner": "owner",
+      "other": "other",
+      "expected_other": "deny",
+      "expected_owner": "allow"
+    },
+    {
+      "id": "CUSTOMER-ACME-COLLEAGUE-ALLOW",
+      "operation": "GET /api/v1/tenants/{tenant}/customers/{customer_id}",
+      "path_values": {
+        "tenant": "acme",
+        "customer_id": "c101"
+      },
+      "owner": "owner",
+      "other": "colleague",
+      "expected_other": "allow",
+      "expected_owner": "allow"
+    },
+    {
+      "id": "CUSTOMER-ACME-GLOBEX-DENY",
+      "operation": "GET /api/v1/tenants/{tenant}/customers/{customer_id}",
+      "path_values": {
+        "tenant": "acme",
+        "customer_id": "c101"
+      },
+      "owner": "owner",
+      "other": "other",
+      "expected_other": "deny",
+      "expected_owner": "allow"
+    },
+    {
+      "id": "INVOICE-ACME-EMPLOYEE-ALLOW",
+      "operation": "GET /api/v1/tenants/{tenant}/invoices/{invoice_id}",
+      "path_values": {
+        "tenant": "acme",
+        "invoice_id": "inv100"
+      },
+      "owner": "finance",
+      "other": "owner",
+      "expected_other": "allow",
+      "expected_owner": "allow"
+    },
+    {
+      "id": "INVOICE-ACME-GLOBEX-DENY",
+      "operation": "GET /api/v1/tenants/{tenant}/invoices/{invoice_id}",
+      "path_values": {
+        "tenant": "acme",
+        "invoice_id": "inv100"
+      },
+      "owner": "finance",
+      "other": "other",
+      "expected_other": "deny",
+      "expected_owner": "allow"
+    },
+    {
+      "id": "ORDER-GLOBEX-ACME-PARENT-DENY",
+      "operation": "GET /api/v1/tenants/{tenant}/purchase-orders/{order_id}",
+      "path_values": {
+        "tenant": "acme",
+        "order_id": "po200"
+      },
+      "owner": "owner",
+      "other": "colleague",
+      "expected_owner": "deny",
+      "expected_other": "deny"
+    },
+    {
+      "id": "CUSTOMER-GLOBEX-ACME-PARENT-DENY",
+      "operation": "GET /api/v1/tenants/{tenant}/customers/{customer_id}",
+      "path_values": {
+        "tenant": "acme",
+        "customer_id": "c201"
+      },
+      "owner": "owner",
+      "other": "colleague",
+      "expected_owner": "deny",
+      "expected_other": "deny"
+    }
+  ]
+}

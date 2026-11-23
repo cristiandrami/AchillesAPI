@@ -56,6 +56,17 @@ def _lists(raw: dict[str, Any]) -> list[dict[str, Any]]:
         'workflows': 'Workflow', 'nodes': 'Nodi', 'edges': 'Collegamenti',
         'responses': 'Risposte', 'observations': 'Osservazioni HTTP',
         'steps': 'Esiti della suite completa',
+        'differences': 'Differenze tra identità',
+        'policy_conflicts': 'Possibili conflitti con la policy',
+        'cases': 'Confronti delle modifiche',
+        'proposals': 'Workflow da revisionare',
+        'issues': 'Problemi della campagna',
+        'checks': 'Controlli di qualità',
+        'accepted': 'Suggerimenti AI autorizzabili',
+        'validated_actions': 'Follow-up Ollama da approvare',
+        'rules': 'Regole della matrice di accesso',
+        'records': 'Qualità delle prove',
+        'profiles': 'Profili e rinnovo sessione',
     }
     results = []
     def visit(node: Any, path: str, depth: int):
@@ -86,20 +97,18 @@ def viewer_payload(raw: dict[str, Any], *, action: str, job_id: str) -> dict[str
             'tools_failed': raw.get('summary',{}).get('failed',0),
             'tools_skipped': raw.get('summary',{}).get('skipped',0),
             'http_budget_reserved': raw.get('reserved_request_budget',0),
+            'campaign_http_attempted': (raw.get('http_telemetry') or {}).get('attempted',0),
+            'campaign_http_responded': (raw.get('http_telemetry') or {}).get('responses_received',0),
         })
     findings = professional['findings']
     # A user may also open a professional report as a result. Preserve its
     # already-sanitized findings rather than incorrectly showing zero.
     if not findings and isinstance(raw.get('report_schema'), str) and isinstance(raw.get('findings'), list):
-        from achillesapi.reporting.professional import _safe_category, _safe_text, _safe_reason, _evidence_metadata
-        findings = [{
-            'id': _safe_text(f.get('id', f'OBS-{index:04d}'), 64),
-            'category': _safe_category(f.get('category', 'unclassified')),
-            'operation': _safe_text(f.get('operation', 'unknown'), 160),
-            'severity': f.get('severity', 'informational') if f.get('severity') in {'critical','high','medium','low','informational','info'} else 'informational',
-            'status': 'requires_review', 'confidence': 'indicator',
-            'reason': _safe_reason(f), 'evidence': _evidence_metadata(f.get('evidence')),
-        } for index, f in enumerate(raw['findings'][:300], 1) if isinstance(f, dict)]
+        from achillesapi.reporting.professional import _normalize_observation
+        findings = [
+            _normalize_observation(f, index, passive=f.get('source_type') == 'static_openapi')
+            for index, f in enumerate(raw['findings'][:300], 1) if isinstance(f, dict)
+        ]
     # In assessments, the professional report is the authoritative source.
     # For AI correlations findings are preserved separately by that same report.
     sections = _lists(raw)
@@ -108,7 +117,30 @@ def viewer_payload(raw: dict[str, Any], *, action: str, job_id: str) -> dict[str
         value = raw.get(key)
         if isinstance(value, dict):
             ai.append({'title': key.replace('_', ' ').title(), 'data': safe_tree(value)})
+    rc13_ai = raw.get('ai') if raw.get('engine') == 'achilles-rc13-campaign' else None
+    if isinstance(rc13_ai, dict):
+        status = rc13_ai.get('status', 'not_requested')
+        explanations = {
+            'completed_local': 'Ollama locale ha restituito una risposta strutturata; le ipotesi non equivalgono a vulnerabilità confermate.',
+            'failed': 'L’analisi Ollama richiesta non è riuscita. I test HTTP restano indipendenti: controlla modello e servizio locale.',
+            'not_requested': 'L’analisi Ollama non era stata selezionata per questa esecuzione.',
+            'not_invoked_offline': 'Nessuna inferenza: esecuzione pianificata offline.',
+        }
+        ai.append({'title': 'Stato dell’analisi AI locale',
+                   'data': safe_tree({'status': status,
+                        'explanation': explanations.get(status, 'Verifica il risultato dell’analisi approfondita per lo stato Ollama.'),
+                        'model': rc13_ai.get('model'),
+                        'analysis': rc13_ai.get('analysis') if status == 'completed_local' else None,
+                        'agent_plan': rc13_ai.get('agent_plan') if status == 'completed_local' else None})})
+    rc13_coverage = raw.get('coverage') if raw.get('engine') == 'achilles-rc13-campaign' else raw.get('rc13_coverage')
     return {
+        'rc13_coverage': safe_tree(rc13_coverage) if isinstance(rc13_coverage, dict) else {},
+        'write_operation_coverage': safe_tree(raw.get('write_operation_coverage', {})),
+        'security_capabilities': safe_tree(raw.get('security_capabilities', {})),
+        'verification': safe_tree(raw.get('verification', {})),
+        'verification_rc17': safe_tree(raw.get('verification_rc17', {})),
+        'agent_rc17': safe_tree(raw.get('agent_rc17', {})),
+        'finding_groups': safe_tree(professional.get('finding_groups', [])),
         'id': job_id, 'action': action, 'source_kind': professional['source_kind'],
         'summary': safe_tree(professional['summary']),
         'highlights': professional.get('source_highlights', []),
@@ -119,3 +151,66 @@ def viewer_payload(raw: dict[str, Any], *, action: str, job_id: str) -> dict[str
         'limitations': professional.get('limitations', []),
         'notice': 'Vista sanitizzata e di sola lettura. I suggerimenti AI non confermano vulnerabilità né autorizzano test.'
     }
+
+
+# AI material is exposed in a separate read-only dossier, not inferred from
+# every task whose name contains "agent". The caller supplies the real AI status.
+_AI_OUTPUT_KEYS = ('ai_analysis', 'ai_correlation', 'ai_advisory', 'local_ai_advice',
+                   'ai_followup', 'ai_followup_result', 'ai_prioritization',
+                   'ai_recommendations', 'ollama_analysis')
+_AI_TOP_LEVEL_KEYS = ('executive_summary', 'risk_observations', 'recommended_tests',
+                      'recommendations', 'next_steps', 'limitations',
+                      'cross_correlations', 'false_positive_checks',
+                      'recommended_actions', 'prioritized_findings', 'priority_actions',
+                      'validated_actions', 'suggestions_reviewed', 'discarded_free_text')
+_AI_TASKS = frozenset({'ai-analyze','ai-correlate','ai-followup-safe',
+                        'ai-prioritize','ai-plan-guard','scan','autonomous-agent',
+                        'agent-loop-v2','agent-review','intelligent-plan',
+                        'adaptive-plan','next-actions'})
+
+
+def ai_dossier_entry(raw: dict[str, Any], *, action: str, job_id: str,
+                     ai_status: str = 'not_invoked') -> dict[str, Any] | None:
+    """Bounded, sanitized AI outputs; a deterministic task is not labelled Ollama."""
+    if not isinstance(raw, dict):
+        return None
+    sections = []
+    for key in _AI_OUTPUT_KEYS:
+        value = raw.get(key)
+        if isinstance(value, (dict, list)) and value:
+            sections.append({'name': key, 'data': safe_tree(value)})
+    top_level = {key: raw[key] for key in _AI_TOP_LEVEL_KEYS if key in raw}
+    if top_level and (action in _AI_TASKS or raw.get('provider') == 'ollama-local-only'):
+        sections.append({'name': 'analysis_top_level', 'data': safe_tree(top_level)})
+    if raw.get('engine') == 'achilles-rc13-campaign' and isinstance(raw.get('ai'), dict):
+        state = raw['ai'].get('status', 'not_requested')
+        sections.append({'name': 'rc13_ollama_status',
+                         'data': safe_tree({'status': state, 'model': raw['ai'].get('model'),
+                             'note': ('Ipotesi AI da verificare, non finding HTTP.' if state == 'completed_local'
+                                      else 'Nessuna analisi Ollama disponibile in questo job; verifica il servizio, il modello e le autorizzazioni.')})})
+        if state == 'completed_local' and isinstance(raw['ai'].get('analysis'), dict):
+            sections.append({'name': 'rc13_local_ollama_analysis',
+                             'data': safe_tree(raw['ai']['analysis'])})
+        if isinstance(raw.get('agent_rc17'), dict):
+            sections.append({'name': 'rc17_agent_execution',
+                             'data': safe_tree(raw['agent_rc17'])})
+        if isinstance(raw.get('verification_rc17'), dict):
+            sections.append({'name': 'rc17_evidence_verification',
+                             'data': safe_tree(raw['verification_rc17'])})
+    if not sections and ai_status != 'completed_local':
+        return None
+    if not sections:
+        sections.append({'name': 'output_metadata', 'data': safe_tree({
+            key: raw.get(key) for key in ('engine','status','provider','model','stop_reason')
+            if key in raw})})
+    provider = raw.get('provider')
+    provenance = ('ollama_eseguito' if ai_status == 'completed_local' else
+                  'output_ai_disponibile_non_verificato' if sections and
+                    (provider == 'ollama-local-only' or any(k in raw for k in _AI_OUTPUT_KEYS)) else
+                  'analisi_deterministica')
+    return {'job_id': job_id, 'action': action,
+            'ai_status': ai_status, 'provenance': provenance,
+            'sections': sections[:12],
+            'note': ('Output sanitizzato; non contiene credenziali né prova HTTP automatica.'
+                     if provenance != 'analisi_deterministica' else
+                     'Questa analisi non certifica una chiamata a Ollama.')}

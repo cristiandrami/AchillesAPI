@@ -1,0 +1,1909 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Asterion Logistics Operations API \u2014 Deliberately Vulnerable Lab",
+    "description": "Synthetic enterprise logistics SaaS API. Multi-tenant workflows for shipments, parcels and invoices; selected endpoints contain intentional vulnerabilities. ONLY for 127.0.0.1 testing; no real data.",
+    "contact": {
+      "name": "Training lab \u2014 local only"
+    },
+    "version": "2.4.0-lab"
+  },
+  "servers": [
+    {
+      "url": "http://127.0.0.1:8797",
+      "description": "LOCAL ONLY"
+    }
+  ],
+  "paths": {
+    "/v1/health": {
+      "get": {
+        "tags": [
+          "Platform"
+        ],
+        "summary": "Health",
+        "operationId": "health_v1_health_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/about": {
+      "get": {
+        "tags": [
+          "Platform"
+        ],
+        "summary": "About",
+        "operationId": "about_v1_about_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/shipments": {
+      "get": {
+        "tags": [
+          "Shipments"
+        ],
+        "summary": "List Shipments",
+        "operationId": "list_shipments_v1_shipments_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "Shipments"
+        ],
+        "summary": "Create Shipment",
+        "operationId": "create_shipment_v1_shipments_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ShipmentCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/v1/shipments/{shipment_id}": {
+      "get": {
+        "tags": [
+          "Shipments"
+        ],
+        "summary": "Get Shipment",
+        "operationId": "get_shipment_v1_shipments__shipment_id__get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "shipment_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Shipment Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "Shipments"
+        ],
+        "summary": "Patch Shipment",
+        "operationId": "patch_shipment_v1_shipments__shipment_id__patch",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "shipment_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Shipment Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ShipmentPatch"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Shipments"
+        ],
+        "summary": "Delete Shipment",
+        "operationId": "delete_shipment_v1_shipments__shipment_id__delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "shipment_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Shipment Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/shipments/{shipment_id}/secure-view": {
+      "get": {
+        "tags": [
+          "Shipments"
+        ],
+        "summary": "Secure Shipment",
+        "operationId": "secure_shipment_v1_shipments__shipment_id__secure_view_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "shipment_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Shipment Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/shipments/{shipment_id}/release": {
+      "patch": {
+        "tags": [
+          "Shipments"
+        ],
+        "summary": "Release Shipment",
+        "operationId": "release_shipment_v1_shipments__shipment_id__release_patch",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "shipment_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Shipment Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReleaseRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/shipments/{shipment_id}/parcels": {
+      "post": {
+        "tags": [
+          "Parcels"
+        ],
+        "summary": "Create Parcel",
+        "operationId": "create_parcel_v1_shipments__shipment_id__parcels_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "shipment_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Shipment Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ParcelCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/parcels/{parcel_id}": {
+      "get": {
+        "tags": [
+          "Parcels"
+        ],
+        "summary": "Get Parcel",
+        "operationId": "get_parcel_v1_parcels__parcel_id__get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "parcel_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Parcel Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "Parcels"
+        ],
+        "summary": "Patch Parcel",
+        "operationId": "patch_parcel_v1_parcels__parcel_id__patch",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "parcel_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Parcel Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ParcelPatch"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Parcels"
+        ],
+        "summary": "Delete Parcel",
+        "operationId": "delete_parcel_v1_parcels__parcel_id__delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "parcel_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Parcel Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/parcels/{parcel_id}/secure-view": {
+      "get": {
+        "tags": [
+          "Parcels"
+        ],
+        "summary": "Secure Parcel",
+        "operationId": "secure_parcel_v1_parcels__parcel_id__secure_view_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "parcel_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Parcel Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/invoices": {
+      "get": {
+        "tags": [
+          "Billing"
+        ],
+        "summary": "List Invoices",
+        "operationId": "list_invoices_v1_invoices_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "Billing"
+        ],
+        "summary": "Create Invoice",
+        "operationId": "create_invoice_v1_invoices_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InvoiceCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/v1/invoices/{invoice_id}": {
+      "get": {
+        "tags": [
+          "Billing"
+        ],
+        "summary": "Get Invoice",
+        "operationId": "get_invoice_v1_invoices__invoice_id__get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "invoice_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Invoice Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "Billing"
+        ],
+        "summary": "Patch Invoice",
+        "operationId": "patch_invoice_v1_invoices__invoice_id__patch",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "invoice_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Invoice Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InvoicePatch"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Billing"
+        ],
+        "summary": "Delete Invoice",
+        "operationId": "delete_invoice_v1_invoices__invoice_id__delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "invoice_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Invoice Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/invoices/{invoice_id}/secure-view": {
+      "get": {
+        "tags": [
+          "Billing"
+        ],
+        "summary": "Secure Invoice",
+        "operationId": "secure_invoice_v1_invoices__invoice_id__secure_view_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "invoice_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Invoice Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/admin/dispatch-rules": {
+      "get": {
+        "tags": [
+          "Admin"
+        ],
+        "summary": "Read Dispatch Rules",
+        "operationId": "read_dispatch_rules_v1_admin_dispatch_rules_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "Admin"
+        ],
+        "summary": "Write Dispatch Rules",
+        "operationId": "write_dispatch_rules_v1_admin_dispatch_rules_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminRulesPatch"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/v1/catalog/search": {
+      "get": {
+        "tags": [
+          "Catalog"
+        ],
+        "summary": "Catalog Search",
+        "operationId": "catalog_search_v1_catalog_search_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 180,
+              "default": "",
+              "title": "Q"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/catalog/safe-search": {
+      "get": {
+        "tags": [
+          "Catalog"
+        ],
+        "summary": "Catalog Safe Search",
+        "operationId": "catalog_safe_search_v1_catalog_safe_search_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 180,
+              "default": "",
+              "title": "Q"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/portal/preview": {
+      "get": {
+        "tags": [
+          "Portal"
+        ],
+        "summary": "Portal Preview",
+        "operationId": "portal_preview_v1_portal_preview_get",
+        "parameters": [
+          {
+            "name": "title",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 300,
+              "default": "Delivery scheduled",
+              "title": "Title"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/portal/safe-preview": {
+      "get": {
+        "tags": [
+          "Portal"
+        ],
+        "summary": "Portal Safe Preview",
+        "operationId": "portal_safe_preview_v1_portal_safe_preview_get",
+        "parameters": [
+          {
+            "name": "title",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 300,
+              "default": "Delivery scheduled",
+              "title": "Title"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/integrations/continue": {
+      "get": {
+        "tags": [
+          "Integrations"
+        ],
+        "summary": "Integration Continue",
+        "operationId": "integration_continue_v1_integrations_continue_get",
+        "parameters": [
+          {
+            "name": "next_url",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 500,
+              "title": "Next Url"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/integrations/safe-continue": {
+      "get": {
+        "tags": [
+          "Integrations"
+        ],
+        "summary": "Integration Safe Continue",
+        "operationId": "integration_safe_continue_v1_integrations_safe_continue_get",
+        "parameters": [
+          {
+            "name": "next_url",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 500,
+              "title": "Next Url"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/integrations/fetch-preview": {
+      "get": {
+        "tags": [
+          "Integrations"
+        ],
+        "summary": "Fetch Preview",
+        "operationId": "fetch_preview_v1_integrations_fetch_preview_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "url",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 500,
+              "title": "Url"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/documents/xml-import": {
+      "post": {
+        "tags": [
+          "Documents"
+        ],
+        "summary": "Xml Import",
+        "operationId": "xml_import_v1_documents_xml_import_post",
+        "requestBody": {
+          "content": {
+            "application/xml": {
+              "schema": {
+                "type": "string",
+                "description": "XML document import"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/XMLImportResult"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/v1/documents/read": {
+      "get": {
+        "tags": [
+          "Documents"
+        ],
+        "summary": "Document Read",
+        "operationId": "document_read_v1_documents_read_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "path",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 220,
+              "title": "Path"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/documents/secure-read": {
+      "get": {
+        "tags": [
+          "Documents"
+        ],
+        "summary": "Document Secure Read",
+        "operationId": "document_secure_read_v1_documents_secure_read_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "path",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 220,
+              "title": "Path"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/documents/uploads": {
+      "post": {
+        "tags": [
+          "Documents"
+        ],
+        "summary": "Document Upload",
+        "operationId": "document_upload_v1_documents_uploads_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_document_upload_v1_documents_uploads_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/v1/documents/uploads/{upload_id}": {
+      "get": {
+        "tags": [
+          "Documents"
+        ],
+        "summary": "Document Upload Info",
+        "operationId": "document_upload_info_v1_documents_uploads__upload_id__get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "upload_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Upload Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Documents"
+        ],
+        "summary": "Delete Upload",
+        "operationId": "delete_upload_v1_documents_uploads__upload_id__delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "upload_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Upload Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/internal/metrics": {
+      "get": {
+        "tags": [
+          "Platform"
+        ],
+        "summary": "Leaked Metrics",
+        "operationId": "leaked_metrics_v1_internal_metrics_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/v1/internal/secure-metrics": {
+      "get": {
+        "tags": [
+          "Platform"
+        ],
+        "summary": "Secure Metrics",
+        "operationId": "secure_metrics_v1_internal_secure_metrics_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/v1/debug/config": {
+      "get": {
+        "tags": [
+          "Platform"
+        ],
+        "summary": "Debug Config",
+        "operationId": "debug_config_v1_debug_config_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/v1/debug/safe-config": {
+      "get": {
+        "tags": [
+          "Platform"
+        ],
+        "summary": "Safe Debug Config",
+        "operationId": "safe_debug_config_v1_debug_safe_config_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "AdminRulesPatch": {
+        "properties": {
+          "allow_weekend_dispatch": {
+            "type": "boolean",
+            "title": "Allow Weekend Dispatch",
+            "default": false
+          }
+        },
+        "type": "object",
+        "title": "AdminRulesPatch"
+      },
+      "Body_document_upload_v1_documents_uploads_post": {
+        "properties": {
+          "file": {
+            "type": "string",
+            "format": "binary",
+            "title": "File"
+          }
+        },
+        "type": "object",
+        "required": [
+          "file"
+        ],
+        "title": "Body_document_upload_v1_documents_uploads_post"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "InvoiceCreate": {
+        "properties": {
+          "label": {
+            "type": "string",
+            "maxLength": 160,
+            "minLength": 1,
+            "title": "Label"
+          },
+          "amount": {
+            "type": "number",
+            "maximum": 100000.0,
+            "minimum": 0.0,
+            "title": "Amount",
+            "default": 49.0
+          },
+          "currency": {
+            "type": "string",
+            "pattern": "^[A-Z]{3}$",
+            "title": "Currency",
+            "default": "EUR"
+          }
+        },
+        "type": "object",
+        "required": [
+          "label"
+        ],
+        "title": "InvoiceCreate"
+      },
+      "InvoicePatch": {
+        "properties": {
+          "note": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 300
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "approved": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Approved",
+            "description": "Restricted finance approval; end-user must not modify"
+          },
+          "payout_account": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 80
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Payout Account",
+            "description": "Restricted payout destination"
+          }
+        },
+        "type": "object",
+        "title": "InvoicePatch"
+      },
+      "ParcelCreate": {
+        "properties": {
+          "label": {
+            "type": "string",
+            "maxLength": 160,
+            "minLength": 1,
+            "title": "Label"
+          },
+          "weight_kg": {
+            "type": "number",
+            "maximum": 1000.0,
+            "minimum": 0.0,
+            "title": "Weight Kg",
+            "default": 1.0
+          },
+          "shipment_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Shipment Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "label"
+        ],
+        "title": "ParcelCreate"
+      },
+      "ParcelPatch": {
+        "properties": {
+          "note": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 300
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          }
+        },
+        "type": "object",
+        "title": "ParcelPatch"
+      },
+      "ReleaseRequest": {
+        "properties": {
+          "reason": {
+            "type": "string",
+            "maxLength": 200,
+            "title": "Reason",
+            "default": "Scheduled dispatch"
+          }
+        },
+        "type": "object",
+        "title": "ReleaseRequest"
+      },
+      "ShipmentCreate": {
+        "properties": {
+          "label": {
+            "type": "string",
+            "maxLength": 160,
+            "minLength": 1,
+            "title": "Label"
+          },
+          "destination": {
+            "type": "string",
+            "maxLength": 150,
+            "title": "Destination",
+            "default": "Dock A"
+          },
+          "note": {
+            "type": "string",
+            "maxLength": 300,
+            "title": "Note",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "required": [
+          "label"
+        ],
+        "title": "ShipmentCreate"
+      },
+      "ShipmentPatch": {
+        "properties": {
+          "note": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 300
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "destination": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 150
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Destination"
+          }
+        },
+        "type": "object",
+        "title": "ShipmentPatch"
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "ctx": {
+            "type": "object",
+            "title": "Context"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      },
+      "XMLImportResult": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "preview": {
+            "type": "string",
+            "title": "Preview"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "preview"
+        ],
+        "title": "XMLImportResult"
+      }
+    },
+    "securitySchemes": {
+      "HTTPBearer": {
+        "type": "http",
+        "scheme": "bearer"
+      }
+    }
+  },
+  "tags": [
+    {
+      "name": "Shipments",
+      "description": "Shipment lifecycle with dispatch policies."
+    },
+    {
+      "name": "Parcels",
+      "description": "Child resources tied to shipments."
+    },
+    {
+      "name": "Billing",
+      "description": "Invoices and restricted billing fields."
+    },
+    {
+      "name": "Admin",
+      "description": "Administrative operations."
+    },
+    {
+      "name": "Catalog",
+      "description": "Search services."
+    },
+    {
+      "name": "Integrations",
+      "description": "External integrations and redirects."
+    },
+    {
+      "name": "Documents",
+      "description": "Imports, downloads and uploads."
+    },
+    {
+      "name": "Portal",
+      "description": "Public HTML previews."
+    },
+    {
+      "name": "Platform",
+      "description": "Health and diagnostics."
+    }
+  ]
+}

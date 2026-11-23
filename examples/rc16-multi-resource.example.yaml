@@ -1,0 +1,39 @@
+# Example for an explicitly authorized disposable test API. Adapt all fields to target.
+resources:
+- name: document
+  create: POST /collections/{collection_ref}/documents
+  read: GET /documents/{document_ref}
+  delete: DELETE /documents/{document_ref}
+  identity: owner
+  body:
+    label: approved
+    parent: ${collection.id}
+  marker_field: label
+  marker_pointer: /label
+  id_pointer: /id
+  read_id_pointer: /id
+  path_values:
+    collection_ref: ${collection.id}
+    document_ref: ${document.id}
+- name: collection
+  create: POST /collections
+  read: GET /collections/{collection_ref}
+  delete: DELETE /collections/{collection_ref}
+  identity: owner
+  body:
+    label: approved
+  marker_field: label
+  marker_pointer: /label
+  id_pointer: /id
+  read_id_pointer: /id
+  path_values:
+    collection_ref: ${collection.id}
+  access:
+  - identity: other
+    expected: deny
+  write_checks:
+  - operation: PATCH /collections/{collection_ref}
+    identity: other
+    expected: deny
+    body:
+      description: rc16-authorized-security-test

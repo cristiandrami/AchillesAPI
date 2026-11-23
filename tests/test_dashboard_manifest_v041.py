@@ -8,7 +8,7 @@ from fastapi.testclient import TestClient
 from achillesapi.dashboard.server import create_app
 from achillesapi.dashboard.manifest_builder import discover_manifest_candidates,build_manifest_draft
 
-LAB=Path('/mnt/data/independent-api-lab')
+LAB=Path(__file__).resolve().parent/'fixtures'/'independent-api-lab'
 
 @pytest.fixture
 def client(tmp_path):

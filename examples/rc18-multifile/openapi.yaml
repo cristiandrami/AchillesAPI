@@ -1,0 +1,31 @@
+openapi: 3.0.3
+info:
+  title: RC18 Multi-file Enterprise Example
+  version: '1.0'
+servers:
+  - url: https://api.example.org
+paths:
+  /orders/{order_id}:
+    get:
+      operationId: readOrder
+      parameters:
+        - $ref: ./components/parameters.yaml#/parameters/orderId
+      security:
+        - EnterpriseOAuth: [orders.read]
+      responses:
+        '200':
+          description: Order
+          content:
+            application/json:
+              schema:
+                $ref: ./components/schemas.yaml#/schemas/Order
+components:
+  securitySchemes:
+    EnterpriseOAuth:
+      type: oauth2
+      flows:
+        authorizationCode:
+          authorizationUrl: https://idp.example.org/authorize
+          tokenUrl: https://idp.example.org/token
+          scopes:
+            orders.read: Read authorized orders

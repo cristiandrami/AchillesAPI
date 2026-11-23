@@ -114,7 +114,7 @@ def test_auth_profile_guided_builder(tmp_path,monkeypatch):
 
 def test_workflow_form_on_independent_lab(tmp_path,monkeypatch):
     from pathlib import Path
-    lab=Path('/mnt/data/independent-api-lab/openapi.json')
+    lab=Path(__file__).resolve().parent/'fixtures'/'independent-api-lab'/'openapi.json'
     if not lab.is_file():return
     monkeypatch.setattr(control,'SUITE_ORDER',('workflow-assess',))
     client=TestClient(create_app(tmp_path/'instance'),base_url='http://127.0.0.1:8766')
@@ -134,14 +134,14 @@ def test_workflow_form_on_independent_lab(tmp_path,monkeypatch):
 
 def test_multi_resource_guided_on_independent_lab(tmp_path,monkeypatch):
     from pathlib import Path
-    lab=Path('/mnt/data/independent-api-lab/openapi.json')
+    lab=Path(__file__).resolve().parent/'fixtures'/'independent-api-lab'/'openapi.json'
     if not lab.is_file():return
     monkeypatch.setattr(control,'SUITE_ORDER',('multi-resource-assess',))
     client=TestClient(create_app(tmp_path/'instance'),base_url='http://127.0.0.1:8766')
     headers={'x-achilles-token':client.get('/api/bootstrap').json()['csrf_token']}
     spec=client.post('/api/import-text',headers=headers,json={'kind':'openapi','content':lab.read_text()})
     assert spec.status_code==200
-    auth=client.post('/api/import-text',headers=headers,json={'kind':'auth','content':Path('/mnt/data/independent-api-lab/auth.yaml').read_text()})
+    auth=client.post('/api/import-text',headers=headers,json={'kind':'auth','content':(Path(__file__).resolve().parent/'fixtures'/'independent-api-lab'/'auth.yaml').read_text()})
     assert auth.status_code==200,auth.text
     sid=client.post('/api/control/suite',headers=headers,json={'config':{'action':'auto-assess','specification_id':spec.json()['id'],'auth_config_id':auth.json()['id']}}).json()['id']
     for _ in range(150):

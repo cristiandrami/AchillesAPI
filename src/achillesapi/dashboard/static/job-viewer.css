@@ -4,3 +4,41 @@
 .suite-hero{border-color:#387c83}.suite-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:9px;margin:14px 0}.suite-stats .metric{padding:10px}.suite-task,.suite-finding{border:1px solid #345469;border-radius:9px;margin:9px 0;background:#102536;padding:11px}.suite-task>summary,.suite-finding>summary{cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:12px}.suite-task.failed{border-left:4px solid #c65a5a}.suite-task.skipped{border-left:4px solid #9e9572}.suite-task.complete{border-left:4px solid #3d9b87}.tag.failed{background:#602a38;color:#ffcccb}.tag.skipped{background:#514a31;color:#ffdfab}.tag.complete{background:#1d5747;color:#c0f5e5}.suite-task p{margin:10px 0}.suite-actions{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin:12px 0}.suite-actions a,.suite-actions button,.retry-submit{border:1px solid #47758c;border-radius:8px;background:#1c4254;color:#eaf9fc;padding:8px 12px;cursor:pointer}.suite-inline{margin:12px 0}.suite-reason{color:#ffd49b}.retry-editor{padding:12px;margin:12px 0;border:1px solid #4b7286;border-radius:8px}.retry-editor>summary{cursor:pointer;color:#91e4d7;font-weight:650}.retry-form{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;margin-top:10px}.retry-form>p{grid-column:1/-1}.retry-field{display:flex;flex-direction:column;gap:5px;color:#b9cdda;font-size:13px}.retry-field input,.retry-field select,.retry-field textarea,.suite-hero input,.row-card>input{width:100%;background:#0d1c2c;border:1px solid #46677d;color:white;border-radius:7px;padding:9px}.retry-field:has(input[type=checkbox]){flex-direction:row;align-items:center}.retry-field input[type=checkbox]{width:auto}.retry-submit{grid-column:1/-1}.retry-submit:disabled{opacity:.5}.suite-finding>summary{font-weight:600}.suite-finding p{margin:5px 0}.suite-finding .tree{margin:12px 0}
 /* Guided, schema-aware prerequisite editor */
 .guided-prerequisites{grid-column:1/-1;border:1px solid #376d73;border-radius:10px;background:#0e2734;padding:12px}.guided-prerequisites>summary{cursor:pointer;color:#8ae9dd;font-weight:700}.prereq-builder{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;padding:12px 2px}.prereq-builder>p,.prereq-builder>div:has(fieldset){grid-column:1/-1}.prereq-builder fieldset{border:1px solid #365a6c;border-radius:10px;padding:12px;margin:7px 0}.prereq-builder legend{color:#c2e8df}.prereq-builder fieldset>input,.prereq-builder fieldset>select{display:block;width:100%;margin:8px 0;background:#0d1c2c;border:1px solid #46677d;color:#fff;border-radius:8px;padding:9px}.prereq-builder button{padding:10px;background:#1b4f60;color:white;border:1px solid #579e9d;border-radius:8px;cursor:pointer}.prereq-builder .retry-field input,.prereq-builder .retry-field select{width:100%;background:#0d1c2c;border:1px solid #46677d;color:white;padding:8px;border-radius:8px}.prereq-builder .retry-field:has(input[type=checkbox]){flex-direction:row}.prereq-builder .retry-field input[type=checkbox]{width:auto}
+
+/* v0.80 interactive coverage panel */
+.coverage-operation{padding:11px;margin:7px 0;background:#102a3a;border:1px solid #355569;border-radius:9px}
+.coverage-operation summary{cursor:pointer;color:#bde6eb}
+.coverage-operation .tree{margin:8px 0}
+
+/* RC9 report taxonomy, evidence identity comparison, external AI dossier */
+.finding-section{background:#12283b;border:1px solid #355a70;border-radius:12px;padding:14px;margin:14px 0}
+.finding-section>summary{font-weight:750;font-size:17px;color:#d6f5ef;cursor:pointer}
+.finding-category{margin:12px 0;padding:12px;border:1px solid #37556a;background:#0d2031;border-radius:9px}
+.finding-category>summary{font-weight:650;color:#bce4ec;cursor:pointer}
+.finding-record{padding:12px 14px;margin:8px 0;border-left:3px solid #4c8891;border-radius:7px;background:#172d40}
+.finding-record>summary{cursor:pointer;display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;overflow-wrap:anywhere}
+.finding-record p{margin:10px 0}.identity-table{width:100%;border-collapse:collapse;margin:9px 0;font-size:13px;text-align:left}
+.identity-table td,.identity-table th{border-bottom:1px solid #3d5568;padding:7px 9px}.identity-table th{color:#9fded4}
+.access-identity-comparison{margin:12px 0;padding:10px;border-radius:8px;border:1px solid #386176;background:#112b3c}
+.access-identity-comparison h4{margin:0 0 7px}.dossier-link{display:inline-block;border:1px solid #448478;background:#205657;border-radius:8px;padding:10px 15px;color:#e9fff7;font-weight:650}
+/* The standalone AI dossier reuses the read-only job viewer theme. */
+.dossier-section{border:1px solid #356174;border-radius:10px;padding:13px;margin:14px 0;background:#122c3e}
+.dossier-section>summary{font-size:16px;color:#b0ebdd;font-weight:650;cursor:pointer}
+.dossier-entry{padding:8px 10px;margin:5px 0;overflow-wrap:anywhere;border-bottom:1px solid #365065}
+.dossier-text{white-space:pre-wrap;overflow-wrap:anywhere;color:#d7e7f1}
+
+/* Hierarchy by finding severity. Group badge is the maximum observed severity. */
+.finding-section>summary,.finding-category>summary{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px}
+.finding-section[data-severity="critical"]{border-left:4px solid #e77b8b}
+.finding-section[data-severity="high"]{border-left:4px solid #e69b6c}
+.finding-section[data-severity="medium"]{border-left:4px solid #e9c37d}
+.finding-section[data-severity="low"]{border-left:4px solid #89bdc7}
+.finding-section[data-severity="informational"]{border-left:4px solid #7c9bb1}
+.severity-rollup{margin-left:auto;white-space:nowrap;font-weight:700}
+.tag.critical{background:#633044;color:#ffe6ed}
+.tag.high{background:#633d2c;color:#ffe1c2}
+.tag.medium{background:#594a27;color:#fff0be}
+/* rc.19: direct link from skipped/failed suite tasks to the required dashboard step. */
+.suite-remediation{margin:10px 0;padding:12px;border-left:3px solid #bd9153;border-radius:6px;background:rgba(150,150,150,.07)}
+.suite-remediation p{margin:0 0 7px;white-space:pre-line;line-height:1.5}
+.suite-remediation a{text-decoration:underline;text-underline-offset:3px}

@@ -82,6 +82,63 @@ def _body(data: Any, ids: dict[str, str]) -> Any:
     return data
 
 
+def order_disposable_resources(resources: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Topologically order approved fixtures, including out-of-order declarations.
+
+    Only whole `${resource.id}` references are supported. Reject unknown IDs,
+    self-dependencies in create bodies, and cycles BEFORE network execution.
+    Keep independent resources in their original order for stable reports.
+    """
+    if not isinstance(resources, list):
+        raise MultiResourceError('resources must be a list')
+    names: list[str] = []
+    for item in resources:
+        if not isinstance(item, dict) or not isinstance(item.get('name'), str) or not _NAME.fullmatch(item['name']):
+            raise MultiResourceError('Each resource needs a valid name')
+        if item['name'] in names:
+            raise MultiResourceError('Resource names must be distinct')
+        names.append(item['name'])
+    lookup = {item['name']: item for item in resources}
+    dependencies: dict[str, set[str]] = {}
+    for item in resources:
+        name = item['name']
+        deps: set[str] = set()
+        def inspect(value: Any, *, creating: bool = False) -> None:
+            if isinstance(value, dict):
+                for child in value.values(): inspect(child, creating=creating)
+            elif isinstance(value, list):
+                for child in value: inspect(child, creating=creating)
+            elif isinstance(value, str) and '${' in value:
+                match = _REF.fullmatch(value)
+                if not match or match.group(1) not in lookup:
+                    raise MultiResourceError(f'{name}: invalid or unknown resource ID reference')
+                parent = match.group(1)
+                if parent == name and creating:
+                    raise MultiResourceError(f'{name}: creation cannot use its own future ID')
+                if parent != name:
+                    deps.add(parent)
+        values = item.get('path_values', {})
+        if not isinstance(values, dict):
+            raise MultiResourceError(f'{name}: path_values must be a mapping')
+        inspect(values)
+        inspect(item.get('body'), creating=True)
+        # Parent references must be available BEFORE creation. Checks/mutations
+        # are run after creation but may reference only their own/parent IDs.
+        inspect(item.get('mutations', []))
+        inspect(item.get('write_checks', []))
+        dependencies[name] = deps
+    ordered: list[dict[str, Any]] = []
+    pending = set(names)
+    while pending:
+        ready = [name for name in names if name in pending and not (dependencies[name] & pending)]
+        if not ready:
+            raise MultiResourceError('Cyclic resource dependencies: fix the manifest before running writes')
+        for name in ready:
+            ordered.append(lookup[name])
+            pending.remove(name)
+    return ordered
+
+
 def plan_multi_resource(parsed: ParsedAPI, spec: dict[str, Any], manifest: dict[str, Any],
                         profiles: set[str]) -> dict[str, Any]:
     """Validate entire fixture graph and calculate a safe worst-case request budget.
@@ -94,11 +151,12 @@ def plan_multi_resource(parsed: ParsedAPI, spec: dict[str, Any], manifest: dict[
     resources = manifest['resources']
     if not isinstance(resources, list) or not 1 <= len(resources) <= 10:
         raise MultiResourceError("Provide 1..10 explicitly approved disposable resources")
+    resources = order_disposable_resources(resources)
     seen: set[str] = set()
     work: list[dict[str, Any]] = []
     for position, item in enumerate(resources):
         if not isinstance(item, dict) or set(item) - {'name', 'create', 'read', 'delete', 'identity', 'body',
-                'marker_field', 'marker_pointer', 'id_pointer', 'read_id_pointer', 'path_values', 'access', 'mutations'}:
+                'marker_field', 'marker_pointer', 'id_pointer', 'read_id_pointer', 'path_values', 'access', 'mutations', 'write_checks', 'acknowledge_get_side_effect_risk'}:
             raise MultiResourceError("Unknown or malformed resource fields")
         name = item.get('name')
         if not isinstance(name, str) or not _NAME.fullmatch(name) or name in seen:
@@ -107,8 +165,12 @@ def plan_multi_resource(parsed: ParsedAPI, spec: dict[str, Any], manifest: dict[
         identity = item.get('identity')
         if identity not in profiles:
             raise MultiResourceError(f"{name}: undefined identity")
+        get_ack = item.get('acknowledge_get_side_effect_risk', False)
+        if type(get_ack) is not bool:
+            raise MultiResourceError(f'{name}: GET acknowledgement must be boolean')
         create = _operation(parsed, item.get('create'), {'POST'})
-        read = _operation(parsed, item.get('read'), {'GET'})
+        read = _operation(parsed, item.get('read'), {'GET'},
+                          acknowledge_get_side_effect_risk=get_ack)
         delete = _operation(parsed, item.get('delete'), {'DELETE'})
         if read.path != delete.path:
             raise MultiResourceError(f"{name}: DELETE must use the same resource path as GET")
@@ -164,19 +226,102 @@ def plan_multi_resource(parsed: ParsedAPI, spec: dict[str, Any], manifest: dict[
         if not isinstance(mutations, list) or len(mutations) > 4:
             raise MultiResourceError(f'{name}: mutations must be a list of at most four entries')
         for mutation in mutations:
-            if (not isinstance(mutation, dict) or set(mutation) != {'operation', 'body'}
-                or not isinstance(mutation['body'], dict) or not mutation['body']
+            if (not isinstance(mutation, dict)
+                or not {'operation', 'body'}.issubset(mutation) or set(mutation) - {'operation', 'body', 'restore_marker', 'expected_policy', 'verify_fields', 'content_type'}
+                or not isinstance(mutation['body'], (dict, str)) or not mutation['body']
                 or len(json.dumps(mutation['body'])) > 4096):
                 raise MultiResourceError(f'{name}: mutation needs operation and approved bounded JSON body')
+            content_type = mutation.get('content_type', 'application/json')
+            if content_type not in {'application/json', 'application/x-www-form-urlencoded', 'application/xml'}:
+                raise MultiResourceError(f'{name}: Content-Type mutazione non supportato')
+            if content_type == 'application/xml':
+                value = mutation['body']
+                if (not isinstance(value, str) or not value.lstrip().startswith('<') or
+                    '<!DOCTYPE' in value.upper() or '<!ENTITY' in value.upper()):
+                    raise MultiResourceError(f'{name}: XML deve essere esplicito e privo di DTD/entity')
+            elif not isinstance(mutation['body'], dict):
+                raise MultiResourceError(f'{name}: JSON/form richiede proprietà esplicite')
+            if content_type == 'application/x-www-form-urlencoded' and any(
+                not isinstance(k, str) or not isinstance(v, str)
+                for k, v in mutation['body'].items()):
+                raise MultiResourceError(f'{name}: form richiede campi stringa semplici')
+            restore_marker = mutation.get('restore_marker', False)
+            if type(restore_marker) is not bool:
+                raise MultiResourceError(f'{name}: restore_marker must be boolean')
             target = _operation(parsed, mutation['operation'], {'PATCH', 'PUT'})
             if target.path != read.path:
                 raise MultiResourceError(f'{name}: mutation must target the same verified resource path')
-            if not _request_schema(spec, target):
-                raise MultiResourceError(f'{name}: mutation must declare a JSON request body')
-            if marker in mutation['body'] or 'id' in mutation['body']:
+            if content_type == 'application/json':
+                if not _request_schema(spec, target):
+                    raise MultiResourceError(f'{name}: mutation must declare a JSON request body')
+            else:
+                # No silent fallback from JSON: the exact type must be documented.
+                raw_op = spec.get('paths', {}).get(target.path, {}).get(target.method.lower(), {})
+                from achillesapi.core.testgen import _resolve_schema
+                raw_body = _resolve_schema(spec, raw_op.get('requestBody', {}))
+                contents = raw_body.get('content', {}) if isinstance(raw_body, dict) else {}
+                if content_type not in contents:
+                    raise MultiResourceError(f'{name}: Content-Type non dichiarato in OpenAPI')
+
+            if restore_marker and content_type != 'application/json':
+                raise MultiResourceError(f'{name}: restore_marker richiede JSON')
+            if restore_marker:
+                # Only a single approved PATCH field that is exactly the fixture
+                # marker can use the extra restore/verify sequence. The marker
+                # must be restored BEFORE the ordinary cleanup may run.
+                if (target.method != 'PATCH' or set(mutation['body']) != {marker}
+                        or not isinstance(mutation['body'][marker], str)
+                        or len(mutation['body'][marker]) > 128):
+                    raise MultiResourceError(f'{name}: marker probe must be a single bounded PATCH with restore_marker')
+            elif isinstance(mutation['body'], dict) and (marker in mutation['body'] or 'id' in mutation['body']):
                 raise MultiResourceError(f'{name}: mutation may not change marker or ID')
             if '${' in json.dumps(mutation['body']):
                 raise MultiResourceError(f'{name}: mutation body may not contain dynamic references')
+            policy = mutation.get('expected_policy')
+            pointers = mutation.get('verify_fields', [])
+            if policy is not None and policy not in ('allow', 'deny'):
+                raise MultiResourceError(f'{name}: expected_policy deve essere allow o deny')
+            if not isinstance(pointers, list) or len(pointers) > 6 or len(set(map(str, pointers))) != len(pointers):
+                raise MultiResourceError(f'{name}: verify_fields deve contenere 0..6 JSON Pointer distinti')
+            if pointers and content_type != 'application/json':
+                raise MultiResourceError(f'{name}: verifiche di campo supportate per JSON')
+            if pointers and policy is None:
+                raise MultiResourceError(f'{name}: serve expected_policy per verificare la persistenza di campi')
+            for pointer in pointers:
+                if not isinstance(pointer, str) or not re.fullmatch(r'(?:/[A-Za-z0-9_-]{1,64}){1,5}', pointer):
+                    raise MultiResourceError(f'{name}: verify_fields richiede JSON Pointer semplici')
+                cursor: Any = mutation['body']
+                for part in pointer.lstrip('/').split('/'):
+                    if not isinstance(cursor, dict) or part not in cursor:
+                        raise MultiResourceError(f'{name}: il campo verificato deve esistere nel body autorizzato')
+                    cursor = cursor[part]
+                if isinstance(cursor, (dict, list)) or cursor is None or pointer in ('/id', '/' + marker):
+                    raise MultiResourceError(f'{name}: verifica solo campi scalari non identificativi')
+            if restore_marker and (policy is not None or pointers):
+                raise MultiResourceError(f'{name}: restore_marker non può essere combinato con verifica di policy')
+        # BFLA: the operator names a write action on this exact disposable
+        # resource; it is never inferred and never executed on an existing ID.
+        write_checks = item.get('write_checks', [])
+        if not isinstance(write_checks, list) or len(write_checks) > 3:
+            raise MultiResourceError(f'{name}: massimo tre verifiche BFLA esplicite')
+        for action in write_checks:
+            if not isinstance(action, dict) or set(action) - {'operation', 'identity', 'expected', 'body'} or not {'operation', 'identity', 'expected'} <= set(action):
+                raise MultiResourceError(f'{name}: write_checks richiede operation, identity ed expected')
+            if action['identity'] not in profiles or action['expected'] not in ('allow', 'deny'):
+                raise MultiResourceError(f'{name}: identità o policy di scrittura non configurata')
+            target = _operation(parsed, action['operation'], {'POST', 'PATCH'})
+            if not (target.path == read.path or target.path.startswith(read.path + '/')):
+                raise MultiResourceError(f'{name}: azione BFLA deve riguardare soltanto la risorsa temporanea')
+            if set(_PATH.findall(target.path)) - set(values):
+                raise MultiResourceError(f'{name}: manca un parametro path dell’azione BFLA')
+            if any(p.required and p.location in ('query', 'header') and p.name not in values for p in target.parameters):
+                raise MultiResourceError(f'{name}: mancano parametri necessari per l’azione')
+            payload = action.get('body')
+            if payload is not None and (not isinstance(payload, dict) or len(json.dumps(payload)) > 4096 or '${' in json.dumps(payload)):
+                raise MultiResourceError(f'{name}: body BFLA deve essere un piccolo JSON statico')
+            if payload is not None and not _request_schema(spec, target):
+                raise MultiResourceError(f'{name}: body non dichiarato nello Swagger per azione BFLA')
+
         checks = item.get('access', [])
         if not isinstance(checks, list) or len(checks) > 6:
             raise MultiResourceError("access must be a bounded list")
@@ -187,12 +332,16 @@ def plan_multi_resource(parsed: ParsedAPI, spec: dict[str, Any], manifest: dict[
                      'read': read, 'delete': delete, 'config': item})
     # Create + verify GET + access GETs + reverify GET before DELETE + DELETE +
     # confirm-404 GET. Cleanup reserve is included even after early failures.
-    budget = sum(5 + len(w['config'].get('access', [])) + 3*len(w['config'].get('mutations', [])) for w in work)
-    return {'engine':'multi-resource-v0.32', 'executable_with_approval': True,
+    budget = sum(5 + len(w['config'].get('access', [])) +
+                 sum(3 + (2 if m.get('restore_marker') else 0)
+                     for m in w['config'].get('mutations', [])) +
+                 3 * len(w['config'].get('write_checks', [])) for w in work)
+    return {'engine':'multi-resource-v0.32+rc16', 'execution_order': [w['name'] for w in work], 'executable_with_approval': True,
             'requests_sent':0, 'request_budget_required':budget,
             'resources':[{'name':w['name'],'depends_on':w['depends_on'],
                           'operations':[w['config'][x] for x in ('create','read','delete')],
-                          'access_checks':len(w['config'].get('access',[])), 'mutation_checks':len(w['config'].get('mutations',[]))} for w in work],
+                          'access_checks':len(w['config'].get('access',[])), 'mutation_checks':len(w['config'].get('mutations',[])),
+                          'write_checks':len(w['config'].get('write_checks',[]))} for w in work],
             '_prepared':work}
 
 
@@ -235,6 +384,10 @@ def run_multi_resource(parsed: ParsedAPI, spec: dict[str, Any], manifest: dict[s
             endpoint = _operation(parsed, mutation['operation'], {'PATCH', 'PUT'})
             if not _auth_ok(endpoint, identities[cfg['identity']], schemes):
                 raise ScopeError('Mutation identity incompatible with OpenAPI security')
+        for action in cfg.get('write_checks', []):
+            endpoint = _operation(parsed, action['operation'], {'POST', 'PATCH'})
+            if not _auth_ok(endpoint, identities[action['identity']], schemes):
+                raise ScopeError('Write-check identity incompatible with OpenAPI security')
         for check in cfg.get('access', []):
             if not _auth_ok(item['read'], identities[check['identity']], schemes):
                 raise ScopeError('Access identity incompatible with OpenAPI security')
@@ -249,7 +402,8 @@ def run_multi_resource(parsed: ParsedAPI, spec: dict[str, Any], manifest: dict[s
                                              'Access 2xx mismatches are policy violations only when the expected policy is trustworthy.']}
 
     def send(step: Any, config: dict[str, Any], identity: str, label: str,
-             body: dict[str, Any] | None = None) -> Any:
+             body: dict[str, Any] | str | None = None,
+             content_type: str = 'application/json') -> Any:
         """Send one request declared in OpenAPI and return transient evidence."""
         path = _render(step.path, config.get('path_values', {}), identifiers)
         material = identities[identity]
@@ -262,7 +416,10 @@ def run_multi_resource(parsed: ParsedAPI, spec: dict[str, Any], manifest: dict[s
         headers.update(material.headers)
         evidence = client.request(step.method, base_url.rstrip('/') + path, execute=True,
                                   headers=headers, params=params, cookies=material.cookies,
-                                  json_body=body, sensitive_query_names=set(params),
+                                  json_body=body if content_type == 'application/json' else None,
+                                  form_body=body if content_type == 'application/x-www-form-urlencoded' else None,
+                                  xml_body=body if content_type == 'application/xml' else None,
+                                  sensitive_query_names=set(params),
                                   sensitive_header_names=set(headers))
         report['requests_sent'] += 1
         status = evidence.response.status_code if evidence.response else None
@@ -321,11 +478,57 @@ def run_multi_resource(parsed: ParsedAPI, spec: dict[str, Any], manifest: dict[s
                     entry['verified'] = False
                     break
                 endpoint = _operation(parsed, mutation['operation'], {'PATCH','PUT'})
-                changed, observation = send(endpoint, cfg, cfg['identity'], 'mutation', mutation['body'])
+                previous_state = state
+                changed, observation = send(endpoint, cfg, cfg['identity'], 'mutation', mutation['body'],
+                                             mutation.get('content_type', 'application/json'))
                 row['observations'].append(observation)
-                if not changed.response or not 200 <= changed.response.status_code < 300:
+                if mutation.get('restore_marker'):
+                    # Even a failed PATCH can have changed state. Re-read and
+                    # restore ONLY if the same ID still has the exact probe
+                    # marker. Never delete a resource with an uncertain marker.
+                    current, observation = send(resource['read'], cfg, cfg['identity'], 'post_mutation_verify')
+                    row['observations'].append(observation)
+                    state = _capture_json(current)
+                    observed_marker = _json_pointer(state, cfg['marker_pointer'])
+                    if (not current.response or current.response.status_code != 200
+                            or str(_json_pointer(state, cfg['read_id_pointer'])) != str(rid)
+                            or observed_marker not in (marker, mutation['body'][cfg['marker_field']])):
+                        row['errors'].append('marker_probe_uncertain_state_manual_cleanup')
+                        report['manual_cleanup_required'] = True
+                        entry['verified'] = False
+                        break
+                    if observed_marker != marker:
+                        restored, observation = send(endpoint, cfg, cfg['identity'], 'restore_marker',
+                                                     {cfg['marker_field']: marker})
+                        row['observations'].append(observation)
+                        if not restored.response or not 200 <= restored.response.status_code < 300:
+                            row['errors'].append('marker_restore_failed_manual_cleanup')
+                            report['manual_cleanup_required'] = True
+                            entry['verified'] = False
+                            break
+                        restored_state, observation = send(resource['read'], cfg, cfg['identity'], 'verify_marker_restored')
+                        row['observations'].append(observation)
+                        content = _capture_json(restored_state)
+                        if (not restored_state.response or restored_state.response.status_code != 200
+                                or str(_json_pointer(content, cfg['read_id_pointer'])) != str(rid)
+                                or _json_pointer(content, cfg['marker_pointer']) != marker):
+                            row['errors'].append('marker_restore_unverified_manual_cleanup')
+                            report['manual_cleanup_required'] = True
+                            entry['verified'] = False
+                            break
+                    if not changed.response or not 200 <= changed.response.status_code < 300:
+                        row['errors'].append('mutation_response_failed')
+                        break
+                    continue
+                response_status = changed.response.status_code if changed.response else None
+                policy_deny = mutation.get('expected_policy') == 'deny'
+                permitted_denial = policy_deny and response_status in (401, 403)
+                if not permitted_denial and (not isinstance(response_status, int) or not 200 <= response_status < 300):
                     row['errors'].append('mutation_response_failed')
                     break
+                # An expected 401/403 is a valid negative security control,
+                # not a failed task. Still perform GET verification because a
+                # broken handler could have changed state before denying.
                 check_state, observation = send(resource['read'], cfg, cfg['identity'], 'post_mutation_verify')
                 row['observations'].append(observation)
                 state = _capture_json(check_state)
@@ -336,6 +539,76 @@ def run_multi_resource(parsed: ParsedAPI, spec: dict[str, Any], manifest: dict[s
                     report['manual_cleanup_required'] = True
                     entry['verified'] = False
                     break
+                if permitted_denial:
+                    row['observations'].append({
+                        'step': 'negative_policy_verified',
+                        'operation': mutation['operation'],
+                        'status': response_status,
+                        'state_rechecked': True,
+                    })
+                if mutation.get('expected_policy') == 'deny' and mutation.get('verify_fields'):
+                    # Require a demonstrable value change. A 200 response alone
+                    # is not evidence of Mass Assignment.
+                    for pointer in mutation['verify_fields']:
+                        old_value = _json_pointer(previous_state, pointer)
+                        new_value = _json_pointer(state, pointer)
+                        expected_value = _json_pointer(mutation['body'], pointer)
+                        if old_value != expected_value and new_value == expected_value:
+                            report['findings'].append({
+                                'category': 'mass_assignment_policy_conflict',
+                                'operation': mutation['operation'], 'resource': name,
+                                'field': pointer, 'severity': 'medium',
+                                'profile': cfg['identity'],
+                                'verification_status': 'policy_state_change_requires_review',
+                                'reason': ('Il profilo ha modificato un campo riservato, vietato dalla policy ' +
+                                           'esplicita, e la GET successiva ne ha confermato il cambiamento.'),
+                                'evidence': {'baseline_changed': True, 'persisted': True,
+                                             'expected_policy': 'deny', 'cleanup_required': True}})
+            if row['errors']:
+                break
+            for action in cfg.get('write_checks', []):
+                # Verify immutable fixture identity immediately before the
+                # role-specific write, and again immediately afterwards.
+                current, observation = send(resource['read'], cfg, cfg['identity'], 'pre_write_policy_verify')
+                row['observations'].append(observation)
+                content = _capture_json(current)
+                if (not current.response or current.response.status_code != 200
+                    or str(_json_pointer(content, cfg['read_id_pointer'])) != str(rid)
+                    or _json_pointer(content, cfg['marker_pointer']) != marker):
+                    row['errors'].append('write_policy_blocked_resource_mismatch')
+                    report['manual_cleanup_required'] = True
+                    entry['verified'] = False
+                    break
+                endpoint = _operation(parsed, action['operation'], {'POST', 'PATCH'})
+                outcome, observation = send(endpoint, cfg, action['identity'], 'write_policy_check', action.get('body'))
+                observation['identity'] = action['identity']
+                row['observations'].append(observation)
+                response_status = outcome.response.status_code if outcome.response else None
+                verified_after, observation = send(resource['read'], cfg, cfg['identity'], 'post_write_policy_verify')
+                row['observations'].append(observation)
+                state = _capture_json(verified_after)
+                if (not verified_after.response or verified_after.response.status_code != 200
+                    or str(_json_pointer(state, cfg['read_id_pointer'])) != str(rid)
+                    or _json_pointer(state, cfg['marker_pointer']) != marker):
+                    row['errors'].append('write_policy_uncertain_state_manual_cleanup')
+                    report['manual_cleanup_required'] = True
+                    entry['verified'] = False
+                    break
+                violation = (action['expected'] == 'deny' and isinstance(response_status, int) and 200 <= response_status < 300) or (
+                    action['expected'] == 'allow' and response_status in (401, 403))
+                if violation:
+                    report['findings'].append({
+                        'category': 'bfla_write_policy_conflict', 'severity': 'medium',
+                        'operation': action['operation'], 'resource': name,
+                        'profile': action['identity'], 'expected': action['expected'],
+                        'observed_status': response_status,
+                        'access_comparison': [{'profile': action['identity'],
+                                               'expected': action['expected'], 'status_code': response_status}],
+                        'verification_status': 'policy_response_requires_review',
+                        'reason': ('L’azione di scrittura su una risorsa temporanea ha restituito ' +
+                                   'uno stato HTTP incompatibile con la policy del ruolo.'),
+                        'evidence': {'expected': action['expected'], 'status': response_status,
+                                     'fixture_verified_after': True}})
             if row['errors']:
                 break
             for check in cfg.get('access',[]):
@@ -343,14 +616,30 @@ def run_multi_resource(parsed: ParsedAPI, spec: dict[str, Any], manifest: dict[s
                 observation['identity'] = check['identity']
                 row['observations'].append(observation)
                 status = response.response.status_code if response.response else None
+                # A 2xx alone is not proof of BOLA: validate that the *other*
+                # identity actually received the same disposable marker and ID.
+                other_object = _capture_json(response) if response.response and status == 200 else None
+                same_resource = bool(
+                    status == 200 and isinstance(other_object, (dict, list))
+                    and str(_json_pointer(other_object, cfg['read_id_pointer'])) == str(rid)
+                    and _json_pointer(other_object, cfg['marker_pointer']) == marker)
+                observation['same_temporary_resource_verified'] = same_resource
                 violation = (check['expected'] == 'deny' and isinstance(status,int) and 200 <= status < 300)
                 violation |= (check['expected'] == 'allow' and isinstance(status,int) and status in (401,403))
                 if violation:
                     report['findings'].append({'category':'AUTHORIZATION_POLICY_MISMATCH',
                         'resource':name,'operation':f"GET {resource['read'].path}",
                         'expected':check['expected'],'observed_status':status,
+                        'verification_status': ('same_disposable_object_policy_conflict_requires_review'
+                              if same_resource and check['expected'] == 'deny'
+                              else 'policy_response_requires_review'),
+                        'same_temporary_resource_verified': same_resource,
                         'confidence':'policy_based_requires_review',
-                        'description':'The response contradicts the explicit operator access policy.'})
+                        'description': ('Cross-identity GET returned the same verified temporary object '
+                                        'despite an explicit deny policy; review ownership and tenant policy.'
+                                        if same_resource and check['expected'] == 'deny' else
+                                        'The response contradicts the explicit operator access policy, '
+                                        'but object access was not independently established.')})
     except (MultiResourceError, ScopeError, ValueError, RequestBudgetExceeded) as exc:
         report['errors'] = [type(exc).__name__ + ': ' + str(exc)]
         report['manual_cleanup_required'] = bool(created)

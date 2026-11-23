@@ -113,6 +113,7 @@ def check_bola(
     owner_token: str,
     other_token: str,
     timeout: float = 5.0,
+    expected_other: str = 'unknown',
 ) -> BolaCheckResult:
     """Compare owner and non-owner access to the same object using two GETs.
 
@@ -126,6 +127,8 @@ def check_bola(
         raise BolaCheckError("Both bearer tokens must be provided.")
     if owner_token == other_token:
         raise BolaCheckError("Owner and other-principal tokens must be different.")
+    if expected_other not in {'unknown', 'allow', 'deny'}:
+        raise BolaCheckError('expected_other must be unknown, allow or deny')
     if not 0.1 <= timeout <= 30:
         raise BolaCheckError("Timeout must be between 0.1 and 30 seconds.")
 
@@ -155,10 +158,10 @@ def check_bola(
                 "representations were not compared; review the endpoint manually."
             )
         elif _canonical_body(owner.body) == _canonical_body(other.body):
-            status = "confirmed_bola"
+            status = "confirmed_bola" if expected_other == 'deny' else "possible_bola_manual_review"
             explanation = (
-                "Both distinct principals received HTTP 200 with the same object "
-                "representation. The local test reproduced unauthorized cross-user access."
+                "Both identities received the same representation; only an explicit "
+                "trusted deny policy supports a confirmed BOLA classification."
             )
         else:
             status = "possible_bola_manual_review"

@@ -1,0 +1,27 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Health",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/health": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "ok"
+          }
+        }
+      }
+    },
+    "/metrics": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "ok"
+          }
+        }
+      }
+    }
+  }
+}

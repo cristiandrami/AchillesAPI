@@ -1,0 +1,190 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Unrelated API",
+    "version": "1"
+  },
+  "paths": {
+    "/collections": {
+      "post": {
+        "operationId": "createparent",
+        "responses": {
+          "201": {
+            "description": "created"
+          }
+        },
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "label": {
+                    "type": "string",
+                    "maxLength": 80
+                  },
+                  "parent": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": []
+      }
+    },
+    "/collections/{collection_ref}": {
+      "get": {
+        "operationId": "readparent",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "parameters": [
+          {
+            "in": "path",
+            "name": "collection_ref",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      },
+      "delete": {
+        "operationId": "deleteparent",
+        "responses": {
+          "204": {
+            "description": "deleted"
+          }
+        },
+        "parameters": [
+          {
+            "in": "path",
+            "name": "collection_ref",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      },
+      "patch": {
+        "operationId": "renameCollection",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "collection_ref",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "description": {
+                    "type": "string"
+                  },
+                  "archived": {
+                    "type": "boolean"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "updated"
+          },
+          "403": {
+            "description": "denied"
+          }
+        }
+      }
+    },
+    "/collections/{collection_ref}/documents": {
+      "post": {
+        "operationId": "createchild",
+        "responses": {
+          "201": {
+            "description": "created"
+          }
+        },
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "label": {
+                    "type": "string",
+                    "maxLength": 80
+                  },
+                  "parent": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "in": "path",
+            "name": "collection_ref",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/documents/{document_ref}": {
+      "get": {
+        "operationId": "readchild",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "parameters": [
+          {
+            "in": "path",
+            "name": "document_ref",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      },
+      "delete": {
+        "operationId": "deletechild",
+        "responses": {
+          "204": {
+            "description": "deleted"
+          }
+        },
+        "parameters": [
+          {
+            "in": "path",
+            "name": "document_ref",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    }
+  }
+}

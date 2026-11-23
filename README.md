@@ -1,10 +1,11 @@
 # AchillesAPI
 
+
 **Framework locale per l'analisi di sicurezza delle API a partire da Swagger / OpenAPI.**
 
 AchillesAPI importa una specifica **OpenAPI 3.x** in JSON o YAML, ricostruisce endpoint e superfici di attacco, pianifica ed esegue (solo quando autorizzato) controlli HTTP, correla evidenze, organizza i risultati in una **dashboard web** e può usare **Ollama in locale** per assistere l'analista. Il laboratorio dimostrativo è **separato** dal framework: non è necessario per analizzare un'API reale.
 
-> **Versione documentata: 0.53.0.** Release di sviluppo destinata a penetration test autorizzati. Non è uno scanner universale: le analisi di logica applicativa, l'autenticazione e i workflow richiedono talvolta input dell'operatore. Un finding non equivale automaticamente a una vulnerabilità confermata.
+> **Versione documentata: 1.0.0rc4 (Release Candidate 4).** Release di sviluppo destinata a penetration test autorizzati. Non è uno scanner universale: le analisi di logica applicativa, l'autenticazione e i workflow richiedono talvolta input dell'operatore. Un finding non equivale automaticamente a una vulnerabilità confermata.
 
 ## Indice
 
@@ -21,12 +22,36 @@ AchillesAPI importa una specifica **OpenAPI 3.x** in JSON o YAML, ricostruisce e
 - [11. Risoluzione problemi](#11-risoluzione-problemi)
 - [12. Sicurezza, limiti e privacy](#12-sicurezza-limiti-e-privacy)
 
+### Quickstart CLI v0.90 (solo analisi offline)
+
+```powershell
+uv run achillesapi campaign-preflight openapi.json -o reports/preflight.json
+uv run achillesapi workflow-dependencies openapi.json -o reports/dependencies.json
+uv run achillesapi risk-matrix openapi.json -o reports/risk-matrix.json
+uv run achillesapi auth-audit openapi.json --auth-config auth.yaml -o reports/auth-audit.json
+uv run achillesapi verification-review reports/assessment.json -o reports/review.json
+uv run achillesapi campaign-quality reports/suite.json -o reports/quality.json
+```
+
+`campaign-quality` richiede **un file report suite** (se lo esegui a mano, esporta il report della campagna); `verification-review` richiede un assessment precedente, non lo Swagger. Nessuno dei sei nuovi comandi contatta il target.
+
+### Cosa NON è stato automatizzato
+
+- L'AI non inventa policy, token, dati di fixture né autorizzazioni; Ollama rimane **locale e consultivo**.
+- Una relazione CRUD inferita non equivale a un workflow aziendale realmente validato.
+- Le categorie OWASP sono **candidati di test**, non finding confermati.
+- `reserved_request_budget` è una *riserva prudenziale storica*. **Dalla RC2** i client HTTP instrumentati forniscono anche `http_telemetry`, che misura i tentativi reali della campagna.
+- I job interrotti dopo crash/riavvio restano consultabili ma **non riprendono automaticamente** traffico o cleanup.
+- La v0.90 **non è certificata production-ready**: serve validazione end-to-end su più target autorizzati e approvazione del responsabile del test.
+
+Approfondisci in [architettura e funzioni commentate](docs/ARCHITETTURA_v090_IT.md) e in [modello di sicurezza](docs/SECURITY_MODEL_v090_IT.md).
+
 ## 1. Requisiti
 
 | Componente | Requisito |
 |---|---|
 | Sistema operativo | Windows 10/11 (PowerShell) oppure Linux, incluso Kali |
-| Python | **3.12 consigliato**; il progetto dichiara `>=3.11`. Evita versioni sperimentali come 3.15 |
+| Python | **3.12 consigliato**; il progetto dichiara `>=3.11,<3.15`. Evita versioni sperimentali come 3.15 |
 | Gestore Python | [`uv`](https://docs.astral.sh/uv/getting-started/installation/) |
 | Browser | Browser moderno per la dashboard |
 | API | Swagger / **OpenAPI 3.x** `.json`, `.yaml` o `.yml` |
@@ -122,7 +147,7 @@ Il comando di installazione remoto va eseguito soltanto dopo aver verificato l'o
 **Dalla cartella principale del repository** (quella che contiene `deployment/Modelfile`):
 
 ```powershell
-ollama pull qwen3:8b 
+ollama pull llama3.2:3b
 ollama create achilles-local -f .\deployment\Modelfile
 ollama list
 ```
@@ -130,12 +155,12 @@ ollama list
 Su **Linux**, cambia soltanto il percorso del Modelfile:
 
 ```bash
-ollama pull qwen3:8b 
+ollama pull llama3.2:3b
 ollama create achilles-local -f deployment/Modelfile
 ollama list
 ```
 
-Il `deployment/Modelfile` incluso usa `FROM qwen3:8b`, parametri per output contenuto e istruzioni per produrre analisi strutturate senza inventare evidenze. **Esegui prima `ollama pull`**: `ollama create` non funziona correttamente se il modello base o il Modelfile non è disponibile.
+Il `deployment/Modelfile` incluso usa `FROM llama3.2:3b`, parametri per output contenuto e istruzioni per produrre analisi strutturate senza inventare evidenze. **Esegui prima `ollama pull`**: `ollama create` non funziona correttamente se il modello base o il Modelfile non è disponibile.
 
 ### 4.3 Verifica Ollama
 
@@ -173,7 +198,7 @@ Il listener deve essere locale (`127.0.0.1:11434`), non `0.0.0.0`. Lo script imp
 
 ### 4.5 Requisiti hardware e alternative
 
-- **CPU senza GPU, 8 GB RAM:** `qwen3:8b` è il modello predefinito del progetto; con carico elevato può risultare lento. Valuta un modello più piccolo, ma **devi impostarne il nome nella dashboard** e la qualità delle risposte può ridursi.
+- **CPU senza GPU, 8 GB RAM:** `llama3.2:3b` è il modello predefinito del progetto; con carico elevato può risultare lento. Valuta un modello più piccolo, ma **devi impostarne il nome nella dashboard** e la qualità delle risposte può ridursi.
 - **GPU NVIDIA compatibile:** l'inferenza può essere più veloce, a seconda di driver, RAM/VRAM e modello.
 - **Senza Ollama:** disabilita i controlli AI; discovery, pianificazione offline e controlli tradizionali rimangono disponibili.
 
@@ -225,7 +250,7 @@ Opzioni disponibili:
 | **Includi Ollama locale** | Abilita funzioni AI quando modello e servizio sono disponibili |
 | **Controlli aggiuntivi e agent** | Include ulteriori check compatibili con i prerequisiti |
 | **Workflow con scritture** | Abilita la valutazione di task POST/PATCH/DELETE solo con manifest, scope e consenso specifici |
-| **Budget HTTP suite** | Numero massimo **riservato** di richieste tra i task attivi (intervallo UI: 1–600 nella v0.53) |
+| **Budget HTTP suite** | Numero massimo **riservato** di richieste tra i task attivi (intervallo UI: 1–600 nella v0.90) |
 
 **Importante sul budget:** è un limite di pianificazione **conservativo** che riserva capacità per task; non è un conteggio esatto garantito del traffico realmente generato, né un limite di spesa. I controlli applicano anche i loro limiti specifici. Per ambienti condivisi usa rate e budget ridotti e monitora il sistema.
 
@@ -233,7 +258,7 @@ Quando un task non può partire, compare come **saltato/non avviato**, non come 
 
 ## 7. Task saltati e generatori guidati
 
-Nella vista della suite espandi il task bloccato e scegli **Completa prerequisiti e riprova soltanto questo task**. Nella v0.53 sono presenti generatori guidati per diversi formati; non serve scrivere direttamente JSON/YAML se il builder copre il tuo caso.
+Nella vista della suite espandi il task bloccato e scegli **Completa prerequisiti e riprova soltanto questo task**. Nella v0.90 sono presenti generatori guidati per diversi formati; non serve scrivere direttamente JSON/YAML se il builder copre il tuo caso.
 
 | Task | Dati richiesti | Come prepararli |
 |---|---|---|
@@ -255,7 +280,7 @@ responses:
     headers: {}
 ```
 
-Un normale report di finding **non** sostituisce le evidenze HTTP. La versione 0.53 verifica lo schema `responses` prima di tentare l'analisi. Analogamente, un benchmark **non** deve ricavare automaticamente la verità dai finding dello scanner: servono etichette indipendenti.
+Un normale report di finding **non** sostituisce le evidenze HTTP. La versione 0.90 verifica lo schema `responses` prima di tentare l'analisi. Analogamente, un benchmark **non** deve ricavare automaticamente la verità dai finding dello scanner: servono etichette indipendenti.
 
 Dopo la generazione, premi **Valida** e poi **Riprova task**. Il retry esegue **solo il task scelto**, mantenendolo collegato alla suite; per azioni attive e scritture richiede ancora scope e autorizzazioni. I job della dashboard sono mantenuti in memoria: dopo il riavvio del server i link di esecuzione precedenti potrebbero non essere recuperabili.
 
@@ -349,7 +374,7 @@ Non presumere che credenziali o path di una distribuzione precedente del laborat
 <summary><strong>`ollama create`: manca il Modelfile o il modello base</strong></summary>
 
 - Da **root del progetto** verifica che esista `deployment/Modelfile`.
-- Esegui `ollama pull qwen3:8b` prima di creare `achilles-local`.
+- Esegui `ollama pull llama3.2:3b` prima di creare `achilles-local`.
 - Windows: `ollama create achilles-local -f .\deployment\Modelfile`.
 - Linux: `ollama create achilles-local -f deployment/Modelfile`.
 
@@ -358,7 +383,7 @@ Non presumere che credenziali o path di una distribuzione precedente del laborat
 <details>
 <summary><strong>`workflow-assess`: il campo ID deve iniziare con `/`</strong></summary>
 
-Usa il builder della v0.53: nel campo ID inserisci `id` per una risposta `{"id": 123}` o `/data/id` se l'ID si trova in `{"data":{"id":123}}`. Il builder converte automaticamente un campo semplice nel JSON Pointer previsto dal workflow.
+Usa il builder della v0.90: nel campo ID inserisci `id` per una risposta `{"id": 123}` o `/data/id` se l'ID si trova in `{"data":{"id":123}}`. Il builder converte automaticamente un campo semplice nel JSON Pointer previsto dal workflow.
 
 </details>
 
@@ -390,3 +415,22 @@ Espandi il task, controlla il prerequisito segnalato, usa **Genera e valida file
 ---
 
 **Per iniziare subito:** installa con `uv sync`, avvia `uv run achillesapi dashboard --port 8766`, carica lo Swagger ed esegui **Genera piano offline**. Installa Ollama solo se ti servono i controlli AI. Per una campagna completa, configura prima host autorizzato, eventuali identità e approvazioni.
+
+
+## v0.54 — Credenziali direttamente in `auth.yaml`
+
+Per usare token persistenti **senza variabili d’ambiente**, copia `examples/auth-inline.example.yaml` in `auth.yaml`, modifica i valori e carica il file nella dashboard (passaggio 3):
+
+```yaml
+profiles:
+  - name: owner
+    type: bearer
+    token: "IL_TOKEN_REALE_OWNER"
+  - name: other
+    type: bearer
+    token: "IL_TOKEN_REALE_OTHER"
+```
+
+Il file funziona anche con `workflow-assess`, `journey-assess`, `multi-resource-assess` e altri task che usano profili. Non è necessario impostare `$env:ACHILLES_LAB_OTHER`. Lo stesso `auth.yaml` può essere ricaricato a ogni avvio; all'interno della sessione della dashboard si riutilizza l'upload. Il formato precedente `token_env:` resta supportato (in alternativa a `token:`).
+
+**Sicurezza:** i token inline sono salvati in chiaro su disco e nel file caricato nella directory locale della dashboard. Usa esclusivamente credenziali di test e scope autorizzati, proteggi i permessi della cartella, non pubblicare il file, non includerlo negli allegati dei report. `.gitignore` ora esclude `auth.yaml` e `*.auth.yaml` (l'ignore non rimuove file già tracciati: esegui `git rm --cached auth.yaml` se necessario). Per credenziali reali di produzione è preferibile usare variabili d'ambiente o un secret manager.

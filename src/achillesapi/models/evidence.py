@@ -25,6 +25,7 @@ class ResponseEvidence(BaseModel):
     headers: dict[str, str] = Field(default_factory=dict)
     body_preview: str = ""
     body_truncated: bool = False
+    redirect_host: str | None = None  # Only the hostname, never Location query or token.
     elapsed_ms: float
 
 

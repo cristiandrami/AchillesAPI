@@ -1,0 +1,12 @@
+# Esempio per la nuova matrice autorizzativa RC4.
+# Gli ID delle risorse e i nomi dei profili devono essere quelli autorizzati.
+# Non inserire token in questo file: appartengono al file auth.yaml.
+rules:
+  - id: verify-user-read
+    operation: GET /users/{userId}
+    path_values:
+      userId: "USER_ID_DI_TEST"
+    owner: owner
+    other: other
+    # Scegli deny solo se la policy dell'API vieta davvero questa lettura.
+    expected_other: deny

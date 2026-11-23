@@ -5,7 +5,7 @@ from fastapi.testclient import TestClient
 from achillesapi.dashboard.server import create_app
 from achillesapi.dashboard.manifest_builder import discover_manifest_candidates,build_guided_manifest
 
-LAB=Path('/mnt/data/independent-api-lab')
+LAB=Path(__file__).resolve().parent/'fixtures'/'independent-api-lab'
 
 def test_guided_manifest_without_placeholder():
     candidate=discover_manifest_candidates(str(LAB/'openapi.json'))[0]

@@ -1,0 +1,40 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "OAuth",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/invoices": {
+      "get": {
+        "security": [
+          {
+            "oauth2": [
+              "read:invoices"
+            ]
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "ok"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "oauth2": {
+        "type": "oauth2",
+        "flows": {
+          "clientCredentials": {
+            "tokenUrl": "https://auth.invalid/token",
+            "scopes": {
+              "read:invoices": "read"
+            }
+          }
+        }
+      }
+    }
+  }
+}

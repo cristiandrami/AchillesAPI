@@ -1,0 +1,18 @@
+# EXAMPLE ONLY - copy to auth.yaml and replace placeholder values.
+# Never commit real credentials to GitHub.
+profiles:
+  - name: owner
+    type: bearer
+    token: "REPLACE_WITH_OWNER_TOKEN"
+  - name: other
+    type: bearer
+    token: "REPLACE_WITH_OTHER_TOKEN"
+  - name: admin
+    type: bearer
+    token: "REPLACE_WITH_ADMIN_TOKEN"
+# For X-API-Key auth instead:
+#  - name: partner
+#    type: api_key
+#    location: header
+#    parameter_name: X-API-Key
+#    value: "REPLACE_WITH_API_KEY"

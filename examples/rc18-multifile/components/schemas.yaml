@@ -1,0 +1,7 @@
+schemas:
+  Order:
+    type: object
+    properties:
+      id: {type: string}
+      total: {type: number}
+      customerId: {type: string}

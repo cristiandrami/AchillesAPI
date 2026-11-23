@@ -15,6 +15,8 @@ from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 import httpx
 
+from achillesapi.core.campaign_ledger import CampaignLedger, CampaignBudgetError
+
 from achillesapi.models.evidence import (
     ExecutionEvidence,
     RequestEvidence,
@@ -46,6 +48,9 @@ class SafeHTTPClient:
         verify_tls: bool = True,
         allowed_methods: set[str] | None = None,
         allowed_cidrs: set[str] | None = None,
+        proxy: str | None = None,
+        client_cert: str | tuple[str, str] | None = None,
+        ca_bundle: str | None = None,
     ) -> None:
         """In pratica: Inizializza lo stato e le regole di funzionamento del componente.
 
@@ -66,12 +71,42 @@ class SafeHTTPClient:
         self.max_requests = max_requests
         self.interval = 1.0 / requests_per_second
         self.max_body_bytes = max_body_bytes
-        self.verify_tls = verify_tls
+        self.verify_tls = ca_bundle or verify_tls
+        if proxy:
+            parsed_proxy = urlsplit(proxy)
+            if parsed_proxy.scheme not in {'http', 'https', 'socks5', 'socks5h'} or not parsed_proxy.hostname:
+                raise ValueError('Explicit proxy must be http(s) or socks5(h) URL')
+            if parsed_proxy.username or parsed_proxy.password:
+                raise ValueError('Proxy credentials must not be embedded in configuration URLs')
+        self.proxy = proxy
+        self.client_cert = client_cert
         # Optional strict IP boundary. With no CIDRs, the legacy exact-host scope
         # remains in effect; nothing is silently changed for existing callers.
         self.allowed_cidrs = tuple(ip_network(value, strict=False) for value in (allowed_cidrs or set()))
         self._requests_made = 0
+        # Telemetria locale: contiamo i tentativi, anche se la rete restituisce errore.
+        self._responses_received = 0
+        self._network_errors = 0
+        self._status_classes: dict[str, int] = {}
         self._last_request_at: float | None = None
+        # Se eseguito da una suite, tutti i processi condividono un unico budget.
+        self._campaign_ledger = CampaignLedger.from_environment()
+
+    @property
+    def request_statistics(self) -> dict[str, object]:
+        """Conteggi del solo client corrente, non dell'intera campagna.
+
+        Nota: il contatore viene incrementato subito prima della chiamata HTTP.
+        Una richiesta fallita in rete rimane un tentativo effettuato.
+        """
+        return {
+            'attempted': self._requests_made,
+            'responses_received': self._responses_received,
+            'network_errors': self._network_errors,
+            'status_classes': dict(self._status_classes),
+            'max_requests': self.max_requests,
+            'scope': 'this_client_instance_only',
+        }
 
     def _validate_target(self, method: str, url: str) -> None:
         """In pratica: Controlla metodo, protocollo e host prima di qualunque richiesta.
@@ -161,6 +196,12 @@ class SafeHTTPClient:
         sensitive_query_names: set[str] | None = None,
         sensitive_header_names: set[str] | None = None,
         json_body: dict[str, object] | None = None,
+        form_body: dict[str, str] | None = None,
+        xml_body: str | None = None,
+        approved_xml_oast_url: str | None = None,
+        binary_body: bytes | None = None,
+        binary_content_type: str | None = None,
+        multipart_files: dict[str, tuple[str, bytes, str]] | None = None,
     ) -> ExecutionEvidence:
         """Create a scoped HTTP request, with GET as the only default method.
 
@@ -170,9 +211,69 @@ class SafeHTTPClient:
         """
         # IN PRATICA: Prepara una richiesta. La esegue solo se il metodo e esplicitamente autorizzato.
         # SICUREZZA: Puo inviare richieste HTTP; verificare scope, identita e autorizzazioni.
+        # Payloads are bounded and mutually exclusive. They are accepted only
+        # when the calling engine explicitly enables a write method.
+        selected_bodies = sum(x is not None for x in (json_body, form_body, xml_body, binary_body, multipart_files))
+        if selected_bodies > 1:
+            raise ScopeError('Un solo formato body può essere utilizzato per richiesta')
+        if form_body is not None and (len(form_body) > 40 or any(
+                not isinstance(k, str) or not isinstance(v, str) or len(k) > 100 or len(v) > 4096
+                for k, v in form_body.items())):
+            raise ScopeError('Form supera i limiti approvati')
+        if xml_body is not None:
+            if len(xml_body.encode('utf-8')) > 16_384:
+                raise ScopeError('XML body troppo esteso')
+            if '<!DOCTYPE' in xml_body.upper() or '<!ENTITY' in xml_body.upper():
+                if not approved_xml_oast_url:
+                    raise ScopeError('XML DTD/entity non consentito: richiede OAST approvato')
+                # The only exception is a single bounded outbound HTTP(S) callback.
+                # Never send file://, parameter entities, arbitrary DTD or local files.
+                from xml.etree import ElementTree
+                callback_target = urlsplit(approved_xml_oast_url)
+                if (callback_target.scheme not in ('http', 'https') or not callback_target.hostname or
+                        callback_target.username or callback_target.password or callback_target.fragment or
+                        (callback_target.scheme == 'http' and callback_target.hostname not in ('localhost','127.0.0.1','::1'))):
+                    raise ScopeError('OAST XML endpoint non valido')
+                # Exact prefix constructed by the RC15 engine (no permissive DTD parsing).
+                prefix = re.match(r'\A<!DOCTYPE ([A-Za-z][A-Za-z0-9_-]*) '
+                                  r'\[<!ENTITY achilles SYSTEM "([^"<>]+)"\>\]>\s*', xml_body)
+                if not prefix or prefix.group(2) != approved_xml_oast_url:
+                    raise ScopeError('Only exact Achilles callback DTD can be used')
+                remainder = xml_body[prefix.end():]
+                if (re.search(r'<!\s*(?:ENTITY|DOCTYPE)', remainder, re.I)
+                        or remainder.count('&achilles;') != 1 or '<%' in remainder):
+                    raise ScopeError('Unexpected XML entity or document subset')
+                try:
+                    document = ElementTree.fromstring(remainder.replace('&achilles;', ''))
+                except ElementTree.ParseError as exc:
+                    raise ScopeError('Invalid XML OAST payload') from exc
+                if document.tag != prefix.group(1):
+                    raise ScopeError('Unexpected XML OAST root')
+        elif approved_xml_oast_url is not None:
+            raise ScopeError('OAST approval without XML payload')
+        if multipart_files is not None:
+            if not multipart_files or len(multipart_files) > 3:
+                raise ScopeError('Multipart richiede 1..3 file di prova')
+            for field, file_info in multipart_files.items():
+                if (not isinstance(field, str) or not isinstance(file_info, tuple)
+                        or len(file_info) != 3):
+                    raise ScopeError('File multipart non valido')
+                filename, content, mime = file_info
+                if (not isinstance(filename, str) or not re.fullmatch(r'[A-Za-z0-9_-]{1,64}\.(?:txt|png|jpg|pdf)', filename)
+                        or not isinstance(content, bytes) or len(content) > 16_384
+                        or not isinstance(mime, str) or mime not in
+                        {'text/plain','image/png','image/jpeg','application/pdf'}):
+                    raise ScopeError('Upload fuori dall’allowlist file di prova o sopra 16 KB')
+        if binary_body is not None and (len(binary_body) > 16_384 or
+                not binary_content_type or len(binary_content_type) > 100):
+            raise ScopeError('Upload limitato a 16 KB e richiede Content-Type esplicito')
         self._validate_target(method, url)
         self._validate_destination_ips(url)
-        request_headers = headers or {}
+        request_headers = dict(headers or {})
+        if xml_body is not None:
+            request_headers['Content-Type'] = 'application/xml'
+        if binary_body is not None:
+            request_headers['Content-Type'] = binary_content_type
         request_params = params or {}
         request_cookies = cookies or {}
         request_evidence = RequestEvidence(
@@ -194,6 +295,16 @@ class SafeHTTPClient:
             if wait > 0:
                 time.sleep(wait)
         self._last_request_at = time.monotonic()
+        # Prima della rete prenotiamo una richiesta sul budget globale.
+        # Un tentativo fallito resta conteggiato per evitare retry illimitati.
+        reservation = None
+        if self._campaign_ledger is not None:
+            try:
+                reservation = self._campaign_ledger.reserve()
+            except CampaignBudgetError as exc:
+                raise RequestBudgetExceeded(str(exc)) from exc
+            if reservation.delay_seconds:
+                time.sleep(reservation.delay_seconds)
         self._requests_made += 1
         started = time.monotonic()
         try:
@@ -202,11 +313,15 @@ class SafeHTTPClient:
                 follow_redirects=False,
                 trust_env=False,  # Never leak credentials through an inherited proxy.
                 verify=self.verify_tls,
+                proxy=self.proxy,
+                cert=self.client_cert,
                 headers={"User-Agent": "AchillesAPI/0.37.0 (authorized-security-assessment)"},
             ) as client:
                 with client.stream(
                     method.upper(), url, headers=request_headers, params=request_params,
-                    cookies=request_cookies, json=json_body
+                    cookies=request_cookies, json=json_body, data=form_body,
+                    content=xml_body.encode('utf-8') if xml_body is not None else binary_body,
+                    files=multipart_files
                 ) as response:
                     body = bytearray()
                     truncated = False
@@ -218,7 +333,17 @@ class SafeHTTPClient:
                             break
                         body.extend(chunk)
                     status_code = response.status_code
+                    # Registriamo soltanto la classe (2xx, 4xx...), mai URL o token.
+                    label = str(status_code // 100) + 'xx'
+                    self._status_classes[label] = self._status_classes.get(label, 0) + 1
+                    self._responses_received += 1
+                    if reservation is not None:
+                        self._campaign_ledger.finish(reservation, status=status_code)
                     safe_headers = self._safe_headers(response.headers)
+                    # Never log full Location: it can contain access tokens or IDs.
+                    redirect_host = None
+                    if 300 <= status_code < 400 and response.headers.get('location'):
+                        redirect_host = urlsplit(response.headers['location']).hostname
                     encoding = response.encoding or "utf-8"
             elapsed_ms = (time.monotonic() - started) * 1000
             return ExecutionEvidence(
@@ -228,12 +353,16 @@ class SafeHTTPClient:
                     headers=safe_headers,
                     body_preview=bytes(body).decode(encoding, errors="replace"),
                     body_truncated=truncated,
+                    redirect_host=redirect_host,
                     elapsed_ms=round(elapsed_ms, 2),
                 ),
                 executed=True,
                 notes=["Redirects are disabled; only the allowlisted host was contacted."],
             )
         except httpx.HTTPError as exc:
+            if reservation is not None:
+                self._campaign_ledger.finish(reservation, status=None)
+            self._network_errors += 1
             return ExecutionEvidence(
                 request=request_evidence,
                 error=type(exc).__name__,

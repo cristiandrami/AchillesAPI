@@ -18,7 +18,7 @@ def test_guided_workflow_accepts_id_without_slash(tmp_path,monkeypatch):
     monkeypatch.setattr(control,'SUITE_ORDER',('workflow-assess',))
     client=TestClient(create_app(tmp_path/'app'),base_url='http://127.0.0.1:8766')
     header={'x-achilles-token':client.get('/api/bootstrap').json()['csrf_token']}
-    lab=Path('/mnt/data/independent-api-lab/openapi.json')
+    lab=Path(__file__).resolve().parent/'fixtures'/'independent-api-lab'/'openapi.json'
     doc=client.post('/api/import-text',headers=header,json={'kind':'openapi','content':lab.read_text()}).json()
     suite=client.post('/api/control/suite',headers=header,json={'config':{'action':'auto-assess','specification_id':doc['id']}}).json()['id']
     ready(client,suite)

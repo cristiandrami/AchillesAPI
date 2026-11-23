@@ -1,2 +1,2 @@
-"""AchillesAPI package."""
-__version__ = "0.53.0"
+"""AchillesAPI: framework locale per assessment API autorizzati."""
+__version__ = "1.0.0rc27"

@@ -1,0 +1,29 @@
+# Esempio: adattare i path alle operazioni reali dello Swagger.
+# Solo fixture DISPONIBILI e approvate, mai su risorse produttive.
+# L’ID usato nel cleanup deve essere presente nella risposta di creazione.
+operations:
+  - operation: POST /assets
+    mime: application/json
+    body:
+      metadata:
+        note: AchillesAPI temporary test asset
+        items:
+          - description: harmless
+    cleanup:
+      operation: DELETE /assets/{item_id}
+      read_operation: GET /assets/{item_id}
+      id_from: id
+      path_parameter: item_id
+  - operation: POST /upload
+    mime: multipart/form-data
+    cleanup:
+      operation: DELETE /assets/{item_id}
+      read_operation: GET /assets/{item_id}
+      id_from: id
+      path_parameter: item_id
+  # Usare stateless: true solo se confermato dall’operatore che
+  # l’endpoint NON modifica risorse persistenti (es. parsing XML).
+  - operation: POST /xml
+    mime: application/xml
+    body: '<root><value>test</value></root>'
+    stateless: true

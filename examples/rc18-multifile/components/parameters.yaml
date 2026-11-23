@@ -1,0 +1,8 @@
+parameters:
+  orderId:
+    in: path
+    name: order_id
+    required: true
+    schema:
+      type: string
+      minLength: 1

@@ -1,0 +1,37 @@
+# Applies ONLY to localhost test fixtures created during this assessment.
+resources:
+  - name: project
+    create: POST /projects
+    read: GET /projects/{project_ref}
+    delete: DELETE /projects/{project_ref}
+    identity: owner
+    body: {label: temporary-project}
+    marker_field: label
+    marker_pointer: /label
+    id_pointer: /id
+    read_id_pointer: /id
+    path_values:
+      project_ref: ${project.id}
+    mutations:
+      - operation: PATCH /projects/{project_ref}
+        body: {note: workflow-state-check}
+    access:
+      - {identity: other, expected: deny}
+  - name: ticket
+    create: POST /projects/{project_ref}/tickets
+    read: GET /tickets/{ticket_ref}
+    delete: DELETE /tickets/{ticket_ref}
+    identity: owner
+    body: {label: temporary-ticket, project: '${project.id}'}
+    marker_field: label
+    marker_pointer: /label
+    id_pointer: /id
+    read_id_pointer: /id
+    path_values:
+      project_ref: ${project.id}
+      ticket_ref: ${ticket.id}
+    mutations:
+      - operation: PATCH /tickets/{ticket_ref}
+        body: {note: child-workflow-state-check}
+    access:
+      - {identity: other, expected: deny}

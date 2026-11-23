@@ -42,3 +42,78 @@ input:invalid{border-color:#ed8686!important}
 #resultSummary { white-space: pre-line; padding: 14px; margin: 12px 0; line-height: 1.6; }
 
 .suite-job-group{border:1px solid var(--border,#466071);border-radius:12px;margin:10px 0;padding:10px}.suite-job-group>summary,.suite-children>summary{cursor:pointer;font-weight:700;padding:8px;color:inherit}.suite-children{margin:8px 0 0 14px;border-left:2px solid #587487;padding-left:12px}.suite-children .job{margin:5px 0}
+
+/* v0.80 coverage: scrollable table, deliberately neutral candidate states */
+.coverage-scroller{overflow:auto;max-height:470px;border:1px solid #344d60;border-radius:10px;margin-top:12px}
+.coverage-table{width:100%;border-collapse:collapse;font-size:12px;text-align:left}
+.coverage-table th,.coverage-table td{padding:10px 12px;border-bottom:1px solid #2b4256;vertical-align:top;overflow-wrap:anywhere}
+.coverage-table th{position:sticky;top:0;background:#163043;color:#9de3db}
+.coverage-table tr.coverage-observed{border-left:3px solid #3d9b87}
+.coverage-table tr.coverage-unobserved{border-left:3px solid #768797}
+
+/* Dashboard UX.1: progressive disclosure and per-workflow campaign selection. */
+[hidden]{display:none!important}
+body.simple-mode [data-advanced-panel]{display:none!important}
+.quick-actions{display:flex;gap:9px;flex-wrap:wrap;align-items:center;margin:14px 0}
+.quick-actions a{color:#c6f4f0;background:#153745;text-decoration:none;border:1px solid #326674;border-radius:9px;padding:10px 14px;font-size:13px;font-weight:650}
+.workflow-collection{display:grid;gap:7px;margin-top:13px}
+.workflow-option{background:#142f41;padding:10px 13px;border:1px solid #315569;border-radius:10px;margin:0}
+.workflow-option span{overflow-wrap:anywhere}
+.guide-hint{overflow-wrap:anywhere}
+@media(max-width:650px){.quick-actions{flex-direction:column;align-items:stretch}.workflow-collection{grid-template-columns:1fr}}
+
+/* Suite is a first-class operation, visible even with advanced panels collapsed. */
+#fullSuite{scroll-margin-top:20px;border-color:#397986}
+.quick-suite{font-weight:800!important;border-color:#559c97!important;background:#1c4c51!important}
+.suite-confirmations{margin:12px 0;display:grid;gap:8px}
+.suite-confirmations .check{padding:10px 12px;background:#153745;border:1px solid #426f73;border-radius:9px}
+#suiteModeDescription{margin:8px 0 14px}
+
+/* RC9 Ollama control: always visible, independent from the task selection. */
+.ollama-panel{border-color:#3a7282}
+.ollama-status-row{display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:10px 0}
+.ollama-status-pill{display:inline-flex;align-items:center;gap:10px;padding:9px 14px;border-radius:22px;background:#253447;border:1px solid #466070;color:#d6e1e8;font-size:14px}
+.ollama-light{display:inline-block;width:10px;height:10px;background:#99a8b6;border-radius:50%}
+.ollama-status-pill[data-state="online"] .ollama-light{background:#54cca0}
+.ollama-status-pill[data-state="offline"] .ollama-light{background:#e6ae78}
+.ollama-status-pill[data-state="online"]{border-color:#378878}
+.ollama-status-pill[data-state="offline"]{border-color:#966a57}
+.ollama-model-info{background:#0f2131;border-radius:10px;padding:14px;min-height:88px}
+.ollama-model-info p{margin:6px 0}
+.ollama-panel .buttons{margin:12px 0}
+.ollama-panel .helper a,#aiSettings a{color:#79d9d4}
+.ollama-panel .state{margin-top:12px}
+
+/* RC9 workflow UX: test creation flows directly into saved workflows and execution. */
+#workflowLibraryPanel{margin:18px 0 22px;scroll-margin-top:28px;border-color:#418c8e}
+.workflow-execution{margin-top:18px;padding:15px;border:1px solid #3d6a70;border-radius:12px;background:#102c38}
+.workflow-execution h4{font-size:16px;margin:0 0 6px}
+.workflow-execution .buttons{margin-top:10px}
+.guide-result .buttons{margin-top:12px}
+
+/* RC9 — access matrix: import/export and individual rule deletion. */
+.matrix-import-bar{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-top:18px}
+.matrix-file-upload{flex:1 1 340px;max-width:640px}
+.matrix-import-bar>button{flex:0 0 auto}
+.matrix-rules-list{display:flex;flex-direction:column;gap:8px;max-height:340px;overflow:auto;margin-top:14px}
+.matrix-rule{display:flex;gap:10px;align-items:center;justify-content:space-between;padding:10px 12px;border-radius:9px;background:#193345;border:1px solid #365568}
+.matrix-rule-text{min-width:0;overflow-wrap:anywhere;font-size:12px;line-height:1.6}
+.matrix-rule-path{color:#a8c5d7}
+.matrix-rule-remove{flex:0 0 auto;display:grid;place-items:center;padding:0;width:31px;height:31px;line-height:1;border:1px solid #8c5e6b;border-radius:8px;background:#3c2531;color:#ffdbdf;font-size:19px;font-weight:700}
+.matrix-rule-remove:hover,.matrix-rule-remove:focus-visible{background:#663343;outline:2px solid #e39aa9;outline-offset:1px}
+/* rc19: one-purpose sections, easy-to-reach PATCH editor and navigable sidebar */
+.sidebar{overflow-y:auto;overscroll-behavior:contain}
+.sidebar .nav-group{margin-bottom:16px}
+.sidebar .nav-group a{padding:8px 10px;margin-top:3px;font-size:12.5px}
+.task-section{scroll-margin-top:96px}
+.task-section>h2{margin-bottom:8px}
+.task-section>.helper{margin:0 0 14px}
+.task-section>.guided-drawer{border-color:#36576b}
+.patch-field-tools{display:flex;align-items:end;gap:12px;margin:16px 0 8px}
+.patch-field-tools label{flex:1;min-width:180px}
+.patch-field-tools button{flex:none}
+#guidedMutationLabel{display:flex;margin-top:12px}
+#guidedMutationBody{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;min-height:165px;line-height:1.45}
+#guidedMutationAvailableInfo{border-left:3px solid #4cb7af}
+#massAssignmentPanel:target,#loginConfigPanel:target,#authMatrixSection:target{outline:2px solid #49aba9;outline-offset:2px}
+@media(max-width:650px){.patch-field-tools{flex-direction:column;align-items:stretch}.patch-field-tools button{align-self:start}}

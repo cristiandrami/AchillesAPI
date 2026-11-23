@@ -1,0 +1,14 @@
+# Solo laboratorio localhost; inserire DEMO_* nel terminale, nessun segreto qui.
+profiles:
+  - name: owner
+    role: user
+    type: bearer
+    token_env: ACHILLES_DEMO_OWNER_TOKEN
+  - name: other
+    role: user
+    type: bearer
+    token_env: ACHILLES_DEMO_OTHER_TOKEN
+  - name: admin
+    role: admin
+    type: bearer
+    token_env: ACHILLES_DEMO_ADMIN_TOKEN

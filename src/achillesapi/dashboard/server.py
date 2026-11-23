@@ -17,7 +17,7 @@ from pathlib import Path
 from urllib.parse import urlsplit
 from typing import Any
 
-from fastapi import FastAPI, File, Header, HTTPException, Request, UploadFile
+from fastapi import FastAPI, File, Header, HTTPException, Request, UploadFile, Form
 from fastapi.responses import JSONResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
@@ -64,11 +64,28 @@ def _restricted_secrets(values:dict[str,str],auth_file:Path|None)->dict[str,str]
         env[name]=value
     return env
 
-def _safe_error(stderr:str,values:dict[str,str])->str:
+def _safe_error(stderr:str,values:dict[str,str], auth_file:Path|None=None)->str:
     """Show a concise actionable CLI failure after removing secret values."""
     detail=(stderr or '').strip()[-1000:]
-    for secret in values.values():
-        if secret:detail=detail.replace(secret,'[REDACTED]')
+    hidden = [v for v in values.values() if isinstance(v,str) and v]
+    if auth_file is not None:
+        # I segreti inline sono già presenti in auth.yaml: oscurali anche negli
+        # errori della CLI, senza copiare il file in log o nel database.
+        try:
+            from achillesapi.core.auth import AuthenticationFile
+            import yaml
+            configuration = AuthenticationFile.model_validate(
+                yaml.safe_load(auth_file.read_text(encoding='utf-8')))
+            for profile in configuration.profiles:
+                for name in ('token','value','username','password','client_id','client_secret'):
+                    value = getattr(profile, name, None)
+                    if isinstance(value, str) and value:
+                        hidden.append(value)
+        except (OSError, ValueError, TypeError):
+            # Un YAML invalido non deve compromettere la gestione dell'errore.
+            pass
+    for secret in sorted(set(hidden), key=len, reverse=True):
+        detail=detail.replace(secret,'[REDACTED]')
     return detail or 'Comando non riuscito: controlla i parametri dello strumento.'
 
 def create_app(workspace:Path|str)->FastAPI:
@@ -78,9 +95,41 @@ def create_app(workspace:Path|str)->FastAPI:
     uploads=root/'uploads';reports=root/'reports'
     for directory in (uploads,reports):directory.mkdir(mode=0o700,exist_ok=True)
     token=secrets.token_urlsafe(32)
-    jobs:dict[str,dict[str,Any]]={}
+    from achillesapi.dashboard.persistence_v080 import CampaignStore, PersistentJobRegistry
+    store=CampaignStore(root)
+    jobs:dict[str,dict[str,Any]]=PersistentJobRegistry(store)
+    # Recover *results*, not processes. Interrupted suites become inspectable;
+    # unfinished steps are explicitly skipped and can be retried by the operator.
+    for job in list(jobs.values()):
+        if job.get('action')!='full-suite' or not (job.get('error') or '').startswith('Esecuzione interrotta'):
+            continue
+        source=reports/(job['id']+'.json')
+        if not source.is_file():
+            continue
+        try:
+            report=json.loads(source.read_text(encoding='utf-8'))
+            from achillesapi.dashboard.control import SUITE_ORDER
+            already={item.get('action') for item in report.get('steps', [])}
+            for action in SUITE_ORDER:
+                if action not in already:
+                    report['steps'].append({'action':action,'status':'skipped',
+                        'reason':'Task non avviato: dashboard riavviata. Retry manuale disponibile.'})
+            states=[item.get('status') for item in report['steps']]
+            report['summary']={
+                'completed':states.count('complete'), 'failed':states.count('failed'),
+                'skipped':states.count('skipped'), 'total':len(states)}
+            report['status']='interrupted'
+            source.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding='utf-8')
+            job['status']='complete'
+            job['interrupted']=True
+            job['completed_steps']=len(states)
+            job['suite_summary']=report['summary']
+            store.save_job(job)
+        except (OSError,ValueError,TypeError,KeyError):
+            pass
     lock=threading.Lock()
     app=FastAPI(title='AchillesAPI Local Dashboard',docs_url=None,redoc_url=None,openapi_url=None)
+    app.state.campaign_store=store
 
     @app.exception_handler(RequestValidationError)
     async def readable_validation_error(request:Request, exc:RequestValidationError):
@@ -126,7 +175,7 @@ def create_app(workspace:Path|str)->FastAPI:
 
     @app.get('/api/bootstrap')
     def bootstrap():
-        return {'csrf_token':token,'version':'0.52.0','mode':'local-only',
+        return {'csrf_token':token,'version':__import__('achillesapi').__version__,'mode':'local-only',
                 'warning':'Upload only approved Swagger/config. Target requests require execute and allow_host.'}
 
     @app.post('/api/import-text')
@@ -157,13 +206,83 @@ def create_app(workspace:Path|str)->FastAPI:
             return {'id':ident,'kind':kind,'name':str(name)[:120]}
         except Exception as exc:
             dest.unlink(missing_ok=True)
-            raise HTTPException(422,'Contenuto non compatibile: '+str(exc)[:240]) from exc
+            raise HTTPException(422,'Configurazione non valida: controlla nomi dei campi e tipi. Nessun valore segreto viene mostrato.') from exc
+
+    @app.post('/api/rc18/oidc-audit')
+    def rc18_oidc_audit(payload:dict,x_achilles_token:str|None=Header(None)):
+        """Offline OIDC audit. No token submission and no network access."""
+        require_token(x_achilles_token)
+        spec_id=payload.get('specification_id')
+        if not isinstance(spec_id,str) or not re.fullmatch(r'[0-9a-f]{32}',spec_id):
+            raise HTTPException(400, 'Importa prima uno Swagger valido')
+        target=uploads/(spec_id+'.yaml')
+        if not target.is_file():
+            raise HTTPException(404,'Swagger non presente')
+        if any(field in payload for field in ('token','access_token','id_token','execute','discovery_url')):
+            raise HTTPException(400,'Questo pannello accetta solo JSON pubblico e non esegue richieste HTTP')
+        from achillesapi.core.openapi import load_openapi
+        from achillesapi.core.oidc_enterprise_rc18 import full_oidc_audit, OIDCSafetyError
+        def parse_optional(field):
+            value=payload.get(field,'')
+            if not isinstance(value,str) or len(value.encode('utf-8'))>128*1024:
+                raise HTTPException(413,'JSON metadati/JWKS troppo grande')
+            try:
+                obj=json.loads(value) if value.strip() else None
+            except ValueError as exc:
+                raise HTTPException(422,field+': JSON non valido') from exc
+            if obj is not None and not isinstance(obj,dict):
+                raise HTTPException(422,field+': serve un oggetto JSON')
+            return obj
+        try:
+            report=full_oidc_audit(load_openapi(target), metadata=parse_optional('metadata_json'),
+                 jwks=parse_optional('jwks_json'), old_jwks=parse_optional('previous_jwks_json'),
+                 expected_issuer=str(payload.get('expected_issuer',''))[:500] or None)
+        except OIDCSafetyError as exc:
+            raise HTTPException(422,'Audit OIDC: '+str(exc)[:150]) from exc
+        return report
+
+    @app.post('/api/rc19/quality/{job_id}')
+    def rc19_report_quality(job_id:str, x_achilles_token:str|None=Header(None)):
+        """One-purpose offline report QA. Never contacts the target or reveals secrets."""
+        require_token(x_achilles_token)
+        with lock:
+            job=jobs.get(job_id)
+            if not job or job.get('status')!='complete':
+                raise HTTPException(404,'Scegli un job completato nella sezione risultati')
+        source=reports/(job_id+'.json')
+        if not source.is_file() or source.stat().st_size>20*1024*1024:
+            raise HTTPException(422,'Il job non ha un report JSON di dimensione supportata')
+        from achillesapi.core.release_validation_rc19 import quality_gate, RC19ValidationError
+        try:
+            return quality_gate(json.loads(source.read_text(encoding='utf-8')))
+        except (ValueError,TypeError,OSError) as exc:
+            raise HTTPException(422,'Report JSON non compatibile con la verifica qualità') from exc
+
+    @app.post('/api/rc19/benchmark/{job_id}')
+    def rc19_report_benchmark(job_id:str,payload:dict,x_achilles_token:str|None=Header(None)):
+        """One-purpose ground-truth benchmark; accepts only explicit bounded labels."""
+        require_token(x_achilles_token)
+        with lock:
+            job=jobs.get(job_id)
+            if not job or job.get('status')!='complete':
+                raise HTTPException(404,'Scegli un job completato nella sezione risultati')
+        source=reports/(job_id+'.json')
+        if not source.is_file() or source.stat().st_size>20*1024*1024:
+            raise HTTPException(422,'Il job non ha un report JSON di dimensione supportata')
+        expected=payload.get('ground_truth')
+        if not isinstance(expected,dict) or len(json.dumps(expected))>256*1024:
+            raise HTTPException(422,'Inserisci un oggetto ground truth JSON valido, massimo 256 KB')
+        from achillesapi.core.release_validation_rc19 import benchmark_findings, RC19ValidationError
+        try:
+            return benchmark_findings(json.loads(source.read_text(encoding='utf-8')),expected)
+        except (ValueError,TypeError,OSError) as exc:
+            raise HTTPException(422,'Ground truth o report non validi: verifica ID, operazioni e categorie') from exc
 
     @app.get('/api/auth-template')
     def auth_template():
-        """Generate a clearly explained, generic template; never embed credentials."""
-        return {'yaml': 'profiles:\n  - name: tester\n    type: bearer\n    token_env: ACHILLES_TESTER_TOKEN\n  - name: admin\n    type: bearer\n    token_env: ACHILLES_ADMIN_TOKEN\n',
-                'explanation':'token_env è il nome della variabile del segreto, non il token. Inserisci i valori segreti nel pannello Credenziali.'}
+        """Generate a bearer template with inline placeholders (never real credentials)."""
+        return {'yaml': 'profiles:\n  - name: owner\n    type: bearer\n    token: "INSERISCI_TOKEN_OWNER"\n  - name: other\n    type: bearer\n    token: "INSERISCI_TOKEN_OTHER"\n',
+                'explanation':'Inserisci il token direttamente nel campo token. Il file è sensibile: non pubblicarlo su GitHub e non condividerlo.'}
 
     @app.get('/api/specs')
     def specs():
@@ -171,16 +290,29 @@ def create_app(workspace:Path|str)->FastAPI:
                 if file.is_file()]
 
     @app.post('/api/upload')
-    async def upload(file:UploadFile=File(...),x_achilles_token:str|None=Header(None)):
+    async def upload(file:UploadFile=File(...),root:str=Form(''),x_achilles_token:str|None=Header(None)):
         """Store bounded OpenAPI YAML/JSON or auth profile YAML; no remote fetching."""
         require_token(x_achilles_token)
         original=Path(file.filename or '').name
-        if not original.lower().endswith(('.yaml','.yml','.json')):
+        if not original.lower().endswith(('.yaml','.yml','.json','.zip')):
             raise HTTPException(400,'Upload a YAML/JSON file')
-        body=await file.read(MAX_UPLOAD+1)
-        if len(body)>MAX_UPLOAD or not body:
-            raise HTTPException(413,'Upload exceeds 2MB or is empty')
+        limit = 8*1024*1024 if original.lower().endswith('.zip') else MAX_UPLOAD
+        body=await file.read(limit+1)
+        if len(body)>limit or not body:
+            raise HTTPException(413,'Upload exceeds maximum permitted size or is empty')
         file_id=uuid.uuid4().hex
+        if original.lower().endswith('.zip'):
+            from achillesapi.core.openapi_bundle_rc18 import import_zip_bundle, OpenAPIBundleError
+            dest=uploads/(file_id+'.yaml')
+            try:
+                summary = import_zip_bundle(body, dest, root_name=root or None)
+            except (OpenAPIBundleError, ValueError, OSError) as exc:
+                dest.unlink(missing_ok=True)
+                raise HTTPException(422, 'Bundle OpenAPI non valido: '+str(exc)[:220]) from exc
+            return {'id':file_id,'name':original,'title':summary['title'],
+                    'operations':summary['operations'],'bundle':True,
+                    'files':summary['files'],'root':summary['root']}
+        
         dest=uploads/(file_id+'.yaml')
         dest.write_bytes(body)
         os.chmod(dest,0o600)
@@ -211,7 +343,7 @@ def create_app(workspace:Path|str)->FastAPI:
             raise HTTPException(422,'Invalid authentication profile file') from exc
         # Never resolve or return credentials.
         return {'id':file_id,'profiles':manager.names,'descriptions':manager.describe(),
-                'note':'I segreti possono essere inseriti nel pannello dashboard prima del test o come variabili ambiente.'}
+                'note':'Profili caricati. I segreti inline restano nel file locale e non sono restituiti dal server.'}
 
     @app.get('/api/summary/{spec_id}')
     def summary(spec_id:str):
@@ -221,6 +353,44 @@ def create_app(workspace:Path|str)->FastAPI:
         parsed=analyze_openapi_file(target)
         return {'title':parsed.title,'operations':parsed.endpoint_count,
                 'endpoints':[{'method':ep.method,'path':ep.path} for ep in parsed.endpoints[:250]]}
+
+    @app.get('/api/compatibility/{spec_id}')
+    def compatibility(spec_id: str, auth_config_id: str = '', active: bool = False,
+                      writes: bool = False, ai: bool = False, assessment_id: str = ''):
+        """Read-only compatibility/coverage matrix; never contacts the target."""
+        from achillesapi.core.compatibility_v080 import from_file, known_unavailable_actions
+        if not re.fullmatch(r'[a-f0-9]{32}', spec_id):
+            raise HTTPException(400,'Spec ID non valido')
+        spec_file=uploads/(spec_id+'.yaml')
+        if not spec_file.is_file():
+            raise HTTPException(404,'Swagger non caricato')
+        if auth_config_id and (not re.fullmatch(r'[a-f0-9]{32}',auth_config_id)
+                               or not (uploads/(auth_config_id+'.auth.yaml')).is_file()):
+            raise HTTPException(404,'Auth ID non valido')
+        assessment=None
+        if assessment_id:
+            if not re.fullmatch(r'[a-f0-9]{32}',assessment_id):
+                raise HTTPException(400,'Assessment ID non valido')
+            job=jobs.get(assessment_id)
+            if not job or job.get('specification_id') != spec_id or job.get('status')!='complete':
+                raise HTTPException(422,'Assessment non compatibile con lo Swagger corrente')
+            try: assessment=json.loads((reports/(assessment_id+'.json')).read_text(encoding='utf-8'))
+            except (OSError,ValueError) as exc:raise HTTPException(422,'Assessment non disponibile') from exc
+        coverage=from_file(str(spec_file),has_auth=bool(auth_config_id),
+                           active_allowed=active,writes_approved=writes,ai_enabled=ai,
+                           assessment=assessment)
+        coverage['inapplicable_tools']=known_unavailable_actions(coverage)
+        return JSONResponse(coverage,headers={'Cache-Control':'no-store'})
+
+    @app.get('/api/campaigns')
+    def campaign_history():
+        """Historical campaign metadata only; no credentials or raw evidence."""
+        with lock:
+            return [{'id':j['id'],'status':j['status'], 'error':j.get('error'),
+                     'summary':j.get('suite_summary',{}), 'interrupted':j.get('interrupted',False),
+                     'api_name':j.get('api_name'), 'suite_code':j.get('suite_code'),
+                     'display_name':j.get('display_name')}
+                    for j in jobs.values() if j.get('action')=='full-suite']
 
     @app.post('/api/jobs')
     def run_job(config:RunRequest,x_achilles_token:str|None=Header(None)):
@@ -280,6 +450,8 @@ def create_app(workspace:Path|str)->FastAPI:
                 with lock:
                     jobs[job_id]['status']='failed'
                     jobs[job_id]['error']='Process unavailable or timed out'
+            finally:
+                with lock:store.save_job(dict(jobs[job_id]))
         threading.Thread(target=worker,daemon=True).start()
         return {'id':job_id,'status':'running'}
 
@@ -314,6 +486,76 @@ def create_app(workspace:Path|str)->FastAPI:
             'Content-Security-Policy':"default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'",
             'Cache-Control':'no-store','X-Content-Type-Options':'nosniff'})
 
+    @app.get('/job/{job_id}/ai')
+    def ai_dossier_page(job_id: str):
+        """Separate, same-origin read-only dossier for actual AI output."""
+        if not re.fullmatch(r'[0-9a-f]{32}', job_id):
+            raise HTTPException(404, 'Job non trovato')
+        with lock:
+            if job_id not in jobs:
+                raise HTTPException(404, 'Job non trovato in questa sessione')
+        return FileResponse(_ROOT/'static/job-ai.html', headers={
+            'Content-Security-Policy':"default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'",
+            'Cache-Control':'no-store','X-Content-Type-Options':'nosniff'})
+
+    @app.get('/api/job-ai/{job_id}')
+    def ai_dossier_data(job_id: str):
+        """Read AI analyses from each job in a suite without target requests."""
+        if not re.fullmatch(r'[0-9a-f]{32}', job_id):
+            raise HTTPException(404, 'Job non trovato')
+        with lock:
+            item = dict(jobs[job_id]) if job_id in jobs else None
+        if item is None:
+            raise HTTPException(404, 'Job non trovato in questa sessione')
+        from achillesapi.dashboard.job_view import ai_dossier_entry
+        result = {'job_id': job_id, 'action': item.get('action', ''),
+                  'entries': [], 'tasks_without_ai_output': [],
+                  'notice': 'Dossier locale e di sola lettura. Le ipotesi AI non sono vulnerabilità confermate.'}
+        def append_job(child_id: str, action: str, ai_status: str, execution_status: str) -> None:
+            source = reports / (child_id + '.json')
+            if execution_status != 'complete' or not source.is_file():
+                return
+            try:
+                # Never read a report exceeding 6 MiB into this view.
+                if source.stat().st_size > 6 * 1024 * 1024:
+                    result['tasks_without_ai_output'].append({'action': action, 'reason': 'Risultato troppo grande per il dossier'})
+                    return
+                raw = json.loads(source.read_text(encoding='utf-8'))
+                entry = ai_dossier_entry(raw, action=action, job_id=child_id, ai_status=ai_status)
+                if entry is not None:
+                    result['entries'].append(entry)
+                elif action.startswith('ai-') or ai_status not in {'not_invoked', ''}:
+                    result['tasks_without_ai_output'].append({'action': action,
+                        'reason': 'Nessun output del modello registrato · ' + ai_status})
+            except (OSError, ValueError, TypeError):
+                result['tasks_without_ai_output'].append({'action': action, 'reason': 'Risultato non leggibile'})
+        if item.get('action') == 'full-suite':
+            source = reports / (job_id + '.json')
+            if source.is_file() and source.stat().st_size <= 6 * 1024 * 1024:
+                try:
+                    suite = json.loads(source.read_text(encoding='utf-8'))
+                    for step in (suite.get('steps', []) if isinstance(suite, dict) else [])[:100]:
+                        child_id = step.get('job_id') if isinstance(step, dict) else None
+                        if not isinstance(child_id, str) or not re.fullmatch(r'[0-9a-f]{32}', child_id):
+                            continue
+                        append_job(child_id, str(step.get('action', 'task')),
+                                   str(step.get('ai_status', 'not_invoked')),
+                                   str(step.get('status', 'unknown')))
+                except (OSError, ValueError, TypeError):
+                    pass
+        else:
+            append_job(job_id, str(item.get('action', 'job')),
+                       str(item.get('ai_status', 'not_invoked')),
+                       str(item.get('status', 'unknown')))
+        result['total_ai_outputs'] = len(result['entries'])
+        from achillesapi.dashboard.ai_dossier_summary import build_ai_dossier_summary
+        result['executive_digest'] = build_ai_dossier_summary(result['entries'])
+        if item.get('action') == 'full-suite':
+            result['display_name'] = item.get('display_name') or ''
+            result['api_name'] = item.get('api_name') or ''
+            result['suite_code'] = item.get('suite_code') or job_id[:12]
+        return JSONResponse(result, headers={'Cache-Control':'no-store','X-Content-Type-Options':'nosniff'})
+
     @app.get('/api/job-view/{job_id}')
     def job_view_data(job_id:str):
         """Normalized, sanitized view. No execution or target traffic."""
@@ -343,10 +585,37 @@ def create_app(workspace:Path|str)->FastAPI:
                 raise HTTPException(422,'Il risultato non è JSON valido') from exc
         data=viewer_payload(raw,action=item.get('action',item.get('mode','job')),job_id=job_id)
         data['status']=item.get('status','complete')
+        # Le schede servono anche per i task singoli, non solo per la suite.
+        from achillesapi.core.task_help_rc5 import task_help
+        from achillesapi.core.registry_v090 import TOOLS
+        if item.get('action') in TOOLS:
+            data['task_help']=task_help(item['action'])
         if item.get('action')=='full-suite':
+            from achillesapi.dashboard.suite_identity import suite_identity
+            metadata = {k: item.get(k) or raw.get(k) for k in ('api_name','suite_code','display_name')}
+            # Older suite reports may not include human-readable metadata.
+            if not metadata.get('display_name'):
+                metadata = {**suite_identity({'info':{'title':'API senza titolo'}},job_id), **{k:v for k,v in metadata.items() if v}}
+            data.update(metadata)
             steps=raw.get('steps',[])
             data['suite_steps']=__import__('achillesapi.dashboard.job_view',fromlist=['safe_tree']).safe_tree(steps)
+            data['task_help_map']={name:task_help(name) for name in TOOLS}
             data['suite_summary']=raw.get('summary',{})
+            from achillesapi.dashboard.job_view import safe_tree
+            data['compatibility']=safe_tree(raw.get('preflight',{}))
+            data['verification']=safe_tree(raw.get('verification',{}))
+            data['adaptive_plan']=safe_tree(raw.get('adaptive_plan',{}))
+            data['workflow_proposals']=safe_tree(raw.get('workflow_proposals',{}))
+            data['auth_readiness']=safe_tree(raw.get('auth_readiness',{}))
+            data['security_surfaces']=safe_tree(raw.get('security_surfaces',{}))
+            data['risk_matrix']=safe_tree(raw.get('risk_matrix',{}))
+            data['task_preflight']=safe_tree(raw.get('task_preflight',{}))
+            data['ai_readiness']=safe_tree(raw.get('ai_readiness',{}))
+            data['coverage_gaps']=safe_tree(raw.get('coverage_gaps',[]))
+            data['quality_gate']=safe_tree(raw.get('quality_gate',{}))
+            data['release_readiness']=safe_tree(raw.get('release_readiness',{}))
+            data['http_accounting_note']=raw.get('http_accounting_note','')
+            data['http_telemetry']=safe_tree(raw.get('http_telemetry',{}))
             findings=[]
             for step in steps:
                 child_id=step.get('job_id')

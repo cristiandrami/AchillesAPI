@@ -25,7 +25,7 @@ from urllib.parse import quote, urlsplit
 import yaml
 
 from achillesapi.core.auth import AuthenticationMaterial
-from achillesapi.core.generic import _matches_security_scheme, _POSSIBLE_MUTATION
+from achillesapi.core.generic import _matches_security_scheme
 from achillesapi.core.http import SafeHTTPClient, ScopeError
 from achillesapi.core.testgen import _resolve_schema
 from achillesapi.models.api import EndpointInfo, ParsedAPI
@@ -54,17 +54,52 @@ def _op_parts(value: str) -> tuple[str, str]:
     return method, path
 
 
-def _operation(parsed: ParsedAPI, value: str, methods: set[str]) -> EndpointInfo:
-    """Ensure the requested method and path exist in the supplied Swagger file."""
+# A GET named ``getRunById`` is a read.  The older generic substring
+# heuristic treated "run" in its operationId as an action, preventing valid
+# disposable lifecycle tests even after the operator approved the fixture.
+# Only an *action endpoint* (last static path component or action-first
+# operationId) is flagged.  This is still a heuristic: explicit reviewer
+# approval is required for genuinely ambiguous GETs.
+_GET_ACTIONS = frozenset({
+    "delete", "remove", "reset", "logout", "revoke", "disable", "enable",
+    "execute", "run", "trigger", "publish", "transfer", "purchase",
+    "submit", "send", "cancel", "confirm", "approve", "activate",
+})
+_GET_ACTION_PREFIX = re.compile(
+    r"^(?:delete|remove|reset|logout|revoke|disable|enable|execute|trigger|"
+    r"publish|run|transfer|purchase|submit|send|cancel|confirm|approve|activate)"
+    r"(?:[A-Z_]|$)"
+)
+
+
+def get_read_side_effect_risk(endpoint: EndpointInfo) -> str | None:
+    """Flag likely action GETs, not plural resource names or read operationIds."""
+    segments = [s.lower() for s in endpoint.path.strip("/").split("/")
+                if s and not (s.startswith("{") and s.endswith("}"))]
+    if segments and segments[-1] in _GET_ACTIONS:
+        return f"Il segmento finale /{segments[-1]} sembra un'azione, non una lettura."
+    operation_id = endpoint.operation_id or ""
+    if _GET_ACTION_PREFIX.match(operation_id):
+        return f"L'operationId {operation_id} sembra descrivere un'azione."
+    return None
+
+
+def _operation(parsed: ParsedAPI, value: str, methods: set[str], *,
+               acknowledge_get_side_effect_risk: bool = False) -> EndpointInfo:
+    """Ensure the OpenAPI operation is declared and GET safety is reviewed."""
     method, path = _op_parts(value)
     if method not in methods:
         raise WorkflowError(f"Unsupported method for workflow step: {method}.")
     for endpoint in parsed.endpoints:
         if endpoint.method == method and endpoint.path == path:
-            if method == "GET" and _POSSIBLE_MUTATION.search(
-                " ".join([path, endpoint.operation_id or ""])
-            ):
-                raise WorkflowError("GET route may change state and is not safe for automatic testing.")
+            if method == "GET":
+                reason = get_read_side_effect_risk(endpoint)
+                if reason and not acknowledge_get_side_effect_risk:
+                    raise WorkflowError(
+                        f"GET {path}: {reason} Il consenso alle scritture non "
+                        "dimostra che questa GET sia innocua. Verifica l'endpoint "
+                        "e conferma esplicitamente la GET nel workflow."
+                    )
             return endpoint
     raise WorkflowError(f"Operation not declared in OpenAPI: {value}.")
 
@@ -93,7 +128,7 @@ def read_workflows(path: Path | str) -> list[dict[str, Any]]:
         if "REPLACE_ME" in json.dumps(raw):
             raise WorkflowError("Workflow still contains REPLACE_ME placeholders. Review and fill its values.")
         wf = _validate_keys(raw, {"name", "create", "read", "access", "mutation", "cleanup",
-                                  "restricted_response_fields", "path_values", "mutations"}, "Workflow")
+                                  "restricted_response_fields", "path_values", "mutations", "acknowledge_get_side_effect_risk"}, "Workflow")
         if not isinstance(wf.get("name"), str) or not re.fullmatch(r"[\w.-]{1,64}", wf["name"]):
             raise WorkflowError("Each workflow needs a short alphanumeric name.")
         create = _validate_keys(wf.get("create"), {"operation", "identity", "body", "id_pointer", "marker_field"}, "create")
@@ -329,8 +364,12 @@ def _validate_workflows(parsed: ParsedAPI, spec: dict[str, Any], workflows: list
     """Preflight every operation and cleanup path *before* network activity."""
     validated = []
     for wf in workflows:
+        flag = wf.get("acknowledge_get_side_effect_risk", False)
+        if type(flag) is not bool:
+            raise WorkflowError("acknowledge_get_side_effect_risk must be boolean")
         create = _operation(parsed, wf["create"]["operation"], {"POST"})
-        read = _operation(parsed, wf["read"]["operation"], {"GET"})
+        read = _operation(parsed, wf["read"]["operation"], {"GET"},
+                          acknowledge_get_side_effect_risk=flag)
         cleanup = _operation(parsed, wf["cleanup"]["operation"], {"DELETE"})
         ident = wf["read"]["id_parameter"]
         if "{" + ident + "}" not in read.path or "{" + ident + "}" not in cleanup.path:
@@ -363,7 +402,8 @@ def _validate_workflows(parsed: ParsedAPI, spec: dict[str, Any], workflows: list
             raise WorkflowError("Create fixture misses required schema properties: " + ", ".join(missing))
         access_ops = []
         for entry in wf.get("access", []):
-            endpoint = _operation(parsed, entry.get("operation", wf["read"]["operation"]), {"GET"})
+            endpoint = _operation(parsed, entry.get("operation", wf["read"]["operation"]), {"GET"},
+                                  acknowledge_get_side_effect_risk=flag)
             for key in _PLACEHOLDER.findall(endpoint.path):
                 if key != ident and key not in wf_values:
                     raise WorkflowError(f"Missing path value for access check: {key}.")

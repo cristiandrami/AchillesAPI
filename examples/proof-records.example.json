@@ -1,0 +1,10 @@
+{
+  "records": [
+    {
+      "finding_id": "POLICY-001",
+      "evidence_refs": ["request-evidence-001", "response-evidence-002"],
+      "independent_policy_ref": "approved-rule-001",
+      "reproduced": false
+    }
+  ]
+}

@@ -35,6 +35,7 @@ def test_bola_checker_confirms_vulnerable_endpoint(monkeypatch: pytest.MonkeyPat
         "http://127.0.0.1:8000/api/orders/order-bob",
         owner_token="bob-token",
         other_token="alice-token",
+        expected_other="deny",  # Explicit trusted policy for this lab resource.
     )
     assert result.status == "confirmed_bola"
     assert result.confirmed_vulnerability is True

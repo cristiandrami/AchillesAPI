@@ -1,8 +1,8 @@
 """Load, validate, and normalize OpenAPI 3.x documents.
 
-The parser intentionally resolves only local JSON Pointer references. It never
-fetches remote references, which keeps parsing deterministic and avoids making
-unexpected network requests while processing an untrusted specification.
+The parser resolves local JSON Pointers and bounded relative-file references.
+It never fetches remote references, keeping parsing deterministic and avoiding
+unexpected network requests when processing untrusted specifications.
 """
 
 from __future__ import annotations
@@ -64,7 +64,16 @@ def _basic_validate_spec(spec: dict[str, Any]) -> None:
             raise OpenAPIParseError(f"Path item {path!r} must be an object.")
 
 
-def load_openapi(file_path: str | Path, *, validate: bool = True) -> dict[str, Any]:
+def _has_external_refs(value: Any) -> bool:
+    if isinstance(value, dict):
+        if isinstance(value.get('$ref'), str) and not value['$ref'].startswith('#/'):
+            return True
+        return any(_has_external_refs(item) for item in value.values())
+    return isinstance(value, list) and any(_has_external_refs(item) for item in value)
+
+
+def load_openapi(file_path: str | Path, *, validate: bool = True,
+                 allowed_ref_root: Path | None = None) -> dict[str, Any]:
     """Load an OpenAPI YAML/JSON file and optionally validate its structure."""
     # IN PRATICA: Legge il file YAML/JSON e verifica che contenga una specifica OpenAPI valida.
     # SICUREZZA: Non contatta direttamente l'API target.
@@ -84,6 +93,15 @@ def load_openapi(file_path: str | Path, *, validate: bool = True) -> dict[str, A
 
     if not isinstance(spec, dict):
         raise OpenAPIParseError("The OpenAPI document must contain a YAML/JSON object.")
+
+    # Resolve only relative local files, with strict size and directory limits.
+    # No network fetches are triggered by untrusted OpenAPI documents.
+    if _has_external_refs(spec):
+        from achillesapi.core.openapi_external import bundle_local_references, ExternalReferenceError
+        try:
+            spec = bundle_local_references(spec, path, allowed_root=allowed_ref_root)
+        except ExternalReferenceError as exc:
+            raise OpenAPIParseError(str(exc)) from exc
 
     if validate:
         if validate_spec is not None:

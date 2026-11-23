@@ -24,3 +24,21 @@ Thumbs.db
 *.db
 reports/
 artifacts/
+
+# Do not commit inline authentication secrets
+auth.yaml
+*.auth.yaml
+auth.local.yaml
+
+# Local dashboard workspace (may contain API specs and inline credentials)
+dashboard-data/
+workspace/
+uploads/
+*.auth.yaml
+
+# Fixture dimostrativa priva di token reali: necessaria ai test CI
+!tests/fixtures/independent-api-lab/auth.yaml
+
+# SQLite WAL sidecar files of the shared campaign ledger
+*.sqlite3-wal
+*.sqlite3-shm

@@ -1,0 +1,44 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Catalog",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/items": {
+      "post": {
+        "responses": {
+          "201": {
+            "description": "created"
+          }
+        }
+      }
+    },
+    "/items/{itemId}": {
+      "parameters": [
+        {
+          "name": "itemId",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "get": {
+        "responses": {
+          "200": {
+            "description": "ok"
+          }
+        }
+      },
+      "delete": {
+        "responses": {
+          "204": {
+            "description": "deleted"
+          }
+        }
+      }
+    }
+  }
+}

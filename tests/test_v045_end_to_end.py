@@ -65,7 +65,7 @@ def test_dashboard_ai_correlate_does_not_inject_ai_flag(tmp_path,monkeypatch):
     Inject a local fake correlation module in the child runner by patching its
     subprocess boundary, so no model has to be installed for this regression.
     """
-    import achillesapi.dashboard.control as control
+    import achillesapi.core.process_supervisor_rc4 as supervisor
     client=TestClient(create_app(tmp_path/'web'),base_url='http://127.0.0.1:8766')
     header={'x-achilles-token':client.get('/api/bootstrap').json()['csrf_token']}
     sid=prepare(client,header)
@@ -82,11 +82,13 @@ def test_dashboard_ai_correlate_does_not_inject_ai_flag(tmp_path,monkeypatch):
     # Build an ai-correlate job and capture its CLI command; this test covers
     # the *dashboard* rather than just the ai-correlate CLI.
     observed=[]
-    original_run=control.subprocess.run
+    # RC4: la dashboard usa un supervisore isolato anziché subprocess.run.
+    # Intercettiamo il nuovo confine dei processi, senza simulare il risultato.
+    original_run=supervisor.run_cli_bounded
     def instrumented_run(command,*args,**kwargs):
         observed.append(list(command))
         return original_run(command,*args,**kwargs)
-    monkeypatch.setattr(control.subprocess,'run',instrumented_run)
+    monkeypatch.setattr(supervisor,'run_cli_bounded',instrumented_run)
     task=client.post('/api/control/jobs',headers=header,json={
        'action':'ai-correlate','specification_id':sid,'assessment_id':job['id'],
        'ai':True,'model':'achilles-local'})

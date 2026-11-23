@@ -1,0 +1,10 @@
+# Credentials must be set in environment variables, never committed.
+profiles:
+- name: owner
+  role: test-owner
+  type: bearer
+  token_env: ACHILLES_RC16_OWNER_TOKEN
+- name: other
+  role: test-other
+  type: bearer
+  token_env: ACHILLES_RC16_OTHER_TOKEN

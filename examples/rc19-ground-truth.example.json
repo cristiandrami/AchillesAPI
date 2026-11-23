@@ -1,0 +1,6 @@
+{
+  "cases": [
+    {"id": "xss-demo", "operation": "GET /v1/echo", "category": "xss_reflected", "expected": "positive"},
+    {"id": "xss-protected", "operation": "GET /v1/secure/echo", "category": "xss_reflected", "expected": "negative"}
+  ]
+}

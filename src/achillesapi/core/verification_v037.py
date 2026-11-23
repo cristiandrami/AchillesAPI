@@ -17,6 +17,11 @@ def verify_access_policies(assessment: dict[str, Any], rules: list[dict[str, str
     """
     if not isinstance(assessment, dict) or not isinstance(rules, list) or len(rules) > 200:
         raise ValueError('Expected assessment object and <= 200 explicit access rules')
+    # A real access-matrix report carries its evidence *per rule*. Never join
+    # observations by operation/identity alone: two different path IDs may use
+    # the same templated GET but have opposite expected permissions.
+    if assessment.get('engine') == 'achilles-access-matrix-rc4':
+        return _verify_matrix_report(assessment, rules)
     execution = assessment.get('execution_report', {})
     observations = execution.get('observations', []) if isinstance(execution, dict) else []
     known: dict[tuple[str,str],list[int]] = defaultdict(list)
@@ -51,3 +56,65 @@ def verify_access_policies(assessment: dict[str, Any], rules: list[dict[str, str
             'confirmed_vulnerabilities':0,'results':results,
             'limitations':['HTTP response status alone cannot prove resource ownership or data access.',
                            'Operator must confirm the policy, response body and negative controls.']}
+
+
+def _verify_matrix_report(assessment: dict[str, Any], rules: list[dict[str, Any]]) -> dict[str, Any]:
+    """Strict status-only review, keyed by the exact rule ID and GET operation.
+
+    Refuse guessing: an incomplete/dry-run observation is INCONCLUSIVE.
+    The policy is the operator's policy, not a model inference.
+    """
+    if not 1 <= len(rules) <= 20:
+        raise ValueError('Matrix review requires 1–20 explicit operator rules')
+    by_id = {}
+    for rule in rules:
+        if not isinstance(rule, dict) or not isinstance(rule.get('id'), str) or rule['id'] in by_id:
+            raise ValueError('Matrix policy IDs must be unique')
+        if rule.get('expected_owner') not in ('allow', 'deny') or rule.get('expected_other') not in ('allow', 'deny'):
+            raise ValueError('Matrix policy requires allow/deny for BOTH users')
+        by_id[rule['id']] = rule
+    observations = assessment.get('rules', [])
+    if not isinstance(observations, list):
+        raise ValueError('Matrix report has no list of rule observations')
+    seen = set()
+    results = []
+    for entry in observations:
+        if not isinstance(entry, dict) or not isinstance(entry.get('id'), str):
+            continue
+        policy = by_id.get(entry['id'])
+        if not policy or entry['id'] in seen or entry.get('operation') != policy.get('operation'):
+            continue
+        seen.add(entry['id'])
+        got = entry.get('observations', [])
+        for field, user_field in (('expected_owner', 'owner'), ('expected_other', 'other')):
+            identity = policy[user_field]
+            statuses = [x['status_code'] for x in got if isinstance(x,dict)
+                        and x.get('identity') == identity and type(x.get('status_code')) is int] if isinstance(got,list) else []
+            classification = 'inconclusive_missing_observation'
+            if len(statuses) == 1 and assessment.get('executed'):
+                code = statuses[0]
+                if policy[field] == 'deny':
+                    if 200 <= code < 300: classification = 'policy_mismatch_requires_review'
+                    elif code in (401,403): classification = 'consistent_with_policy_not_proven'
+                    else: classification = 'inconclusive_status'
+                elif 200 <= code < 300: classification = 'consistent_with_policy_not_proven'
+                elif code in (401,403): classification = 'policy_mismatch_requires_review'
+                else: classification = 'inconclusive_status'
+            results.append({'rule_id':policy['id'], 'operation':policy['operation'],
+                            'path_values':policy.get('path_values',{}), 'identity':identity,
+                            'expected':policy[field], 'observed_statuses':statuses,
+                            'classification':classification})
+    # Every unmatched rule remains explicitly unverified rather than vanishing.
+    for rule in rules:
+        if rule['id'] not in seen:
+            for field, user_field in (('expected_owner','owner'),('expected_other','other')):
+                results.append({'rule_id':rule['id'], 'operation':rule['operation'],
+                                'path_values':rule.get('path_values',{}), 'identity':rule[user_field],
+                                'expected':rule[field], 'observed_statuses':[],
+                                'classification':'inconclusive_missing_observation'})
+    return {'engine':'access-policy-verifier-v0.36','source_engine':'achilles-access-matrix-rc4',
+            'requests_sent':0, 'review_count':sum(x['classification']=='policy_mismatch_requires_review' for x in results),
+            'confirmed_vulnerabilities':0, 'results':results,
+            'limitations':['Matrix rules are operator-provided, not inferred from OpenAPI.',
+                           'HTTP statuses require response-content and ownership verification.',
+                           'Missing observations never count as a successful authorization test.']}

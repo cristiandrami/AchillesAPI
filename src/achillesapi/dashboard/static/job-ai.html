@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AchillesAPI · Dossier AI</title><link rel="stylesheet" href="/assets/job-viewer.css"><link rel="stylesheet" href="/assets/ui-refactor.css?v=rc9-i18n-ux-1"><link rel="stylesheet" href="/assets/dashboard-polish.css?v=rc23-ui-polish-1"></head>
+<body>
+<header class="viewer-top"><div class="brand"><span class="mark">A</span><div><strong>ACHILLES<span>API</span></strong><small>Dossier AI · sola lettura · locale</small></div></div><div class="top-actions"><a id="backToJob" rel="noopener noreferrer">Torna al job</a><button id="refresh">Aggiorna</button></div></header>
+<main>
+<div id="notice" class="notice" role="status">Caricamento del dossier AI…</div>
+<section class="heading"><div><div class="kicker">RACCOLTA ANALISI AI</div><h1>Dossier AI completo</h1><p>Analisi, ipotesi, raccomandazioni e limitazioni disponibili dai task di questa esecuzione.</p><p id="dossierSuiteName" class="minor" data-no-translate></p></div></section>
+<section id="executiveDigest" class="dossier-digest" aria-label="Sintesi delle analisi AI">
+  <div class="digest-header"><div><div class="kicker">IN BREVE</div><h2>Rischi individuati e prossime azioni</h2>
+  <p>Riepilogo delle osservazioni AI registrate, senza nuove inferenze né test HTTP.</p></div></div>
+  <div id="digestBody" class="digest-body" aria-live="polite"></div>
+  <p class="digest-disclaimer">Le osservazioni AI sono ipotesi da verificare: non equivalgono a vulnerabilità confermate.</p>
+</section>
+<section id="metrics" class="metrics"></section>
+<section id="aiItems" class="panel"></section>
+<section id="notExecuted" class="panel"></section>
+<footer>Dati sanitizzati e locali. Una proposta del modello non rappresenta una vulnerabilità confermata. I task deterministici non vengono attribuiti a Ollama.</footer>
+</main><script src="/assets/i18n-catalog.js?v=rc9-i18n-ux-1" defer></script><script src="/assets/i18n.js?v=rc9-i18n-ux-1" defer></script><script src="/assets/job-ai.js?v=rc9-ai-digest-2" defer></script>
+</body></html>

@@ -1,0 +1,43 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Nested",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/orgs/{orgId}/projects/{projectId}": {
+      "parameters": [
+        {
+          "name": "orgId",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        },
+        {
+          "name": "projectId",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "get": {
+        "responses": {
+          "200": {
+            "description": "ok"
+          }
+        }
+      },
+      "patch": {
+        "responses": {
+          "200": {
+            "description": "ok"
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "openapi": "3.1.0",
+  "info": {"title": "RC17 Synthetic Read-Only API", "version": "1.0"},
+  "paths": {
+    "/search": {
+      "get": {
+        "summary": "Synthetic search for bounded scanner tests",
+        "parameters": [{"name": "query", "in": "query", "schema": {"type": "string"}}],
+        "responses": {"200": {"description": "OK"}}
+      }
+    }
+  }
+}
